@@ -1,7 +1,5 @@
 
-  # Global Design System Setup (Copy)
-
-  This is a code bundle for Global Design System Setup (Copy). The original project is available at https://www.figma.com/design/Fj9aScueGIMzjGZiG94jSW/Global-Design-System-Setup--Copy-.
+  # ỨNG DỤNG GỢI Ý ẨM THỰC VÀ LỘ TRÌNH ĂN UỐNG
 
   ## Running the code
 
