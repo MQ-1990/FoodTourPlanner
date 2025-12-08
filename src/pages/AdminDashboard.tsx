@@ -1,13 +1,20 @@
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, ChangeEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Users, Store, Star, TrendingUp, Search, Edit, Trash2, Check, X, Plus, BarChart3, LogOut, ChevronDown, User } from 'lucide-react';
 import { restaurants, tours } from '../data/mockData';
 import { useAuth } from '../context/AuthContext';
 
+type MenuItem = {
+  name: string;
+  price: string;
+  image?: string;
+};
+
+
 export default function AdminDashboard() {
   const navigate = useNavigate();
   const { logout, user } = useAuth();
-  const [activeTab, setActiveTab] = useState<'overview' | 'restaurants' | 'users' | 'analytics'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'restaurants' | 'users'>('overview');
   const [searchQuery, setSearchQuery] = useState('');
   const [showAddDialog, setShowAddDialog] = useState(false);
   const [showProfileMenu, setShowProfileMenu] = useState(false);
@@ -25,6 +32,18 @@ export default function AdminDashboard() {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
+  useEffect(() => {
+    if (showAddDialog) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = '';
+    }
+
+    return () => {
+      document.body.style.overflow = '';
+    };
+  }, [showAddDialog]);
+
   const handleLogout = () => {
     logout();
     navigate('/login');
@@ -37,11 +56,172 @@ export default function AdminDashboard() {
     totalReviews: 8542,
     activeTours: tours.length,
     newUsersThisWeek: 124,
-    newReviewsThisWeek: 342,
-    pendingApprovals: 5
+    newReviewsThisWeek: 342
   };
 
   const [restaurantList, setRestaurantList] = useState(restaurants);
+
+  // Form state for Add Restaurant
+  const [newName, setNewName] = useState('');
+  const [newAddress, setNewAddress] = useState('');
+  const [newOpeningTime, setNewOpeningTime] = useState('');
+  const [newClosingTime, setNewClosingTime] = useState('');
+  const [newDescription, setNewDescription] = useState('');
+  const [newImageUrl, setNewImageUrl] = useState('');
+  const [newDistrict, setNewDistrict] = useState('');
+  const [editingRestaurant, setEditingRestaurant] = useState<any | null>(null);
+
+  const [menuItems, setMenuItems] = useState<MenuItem[]>([
+    { name: '', price: '', image: '' },
+  ]);
+
+  // Mở modal ở chế độ ADD – reset form
+  const openAddDialog = () => {
+    setEditingRestaurant(null);
+
+    setNewName('');
+    setNewAddress('');
+    setNewOpeningTime('');
+    setNewClosingTime('');
+    setNewDescription('');
+    setNewImageUrl('');
+    setNewDistrict('');
+    setMenuItems([{ name: '', price: '', image: '' }]);
+
+    setShowAddDialog(true);
+  };
+
+  // Mở modal ở chế độ EDIT – fill form từ restaurant
+  const openEditDialog = (restaurant: any) => {
+    setEditingRestaurant(restaurant);
+
+    setNewName(restaurant.name || '');
+    setNewAddress(restaurant.address || '');
+    setNewOpeningTime(restaurant.openingTime || '');
+    setNewClosingTime(restaurant.closingTime || '');
+    setNewDescription(restaurant.description || '');
+    setNewImageUrl(restaurant.image || '');
+    setNewDistrict(restaurant.district || '');
+
+    setMenuItems(
+      restaurant.menu && restaurant.menu.length
+        ? restaurant.menu.map((m: any) => ({
+          name: m.name || '',
+          price: String(m.price ?? ''),
+          image: m.image || '',
+        }))
+        : [{ name: '', price: '', image: '' }]
+    );
+
+    setShowAddDialog(true);
+  };
+
+
+  const handleMenuItemChange = (
+    index: number,
+    field: 'name' | 'price',
+    value: string
+  ) => {
+    setMenuItems((prev) => {
+      const copy = [...prev];
+      copy[index] = { ...copy[index], [field]: value };
+      return copy;
+    });
+  };
+
+  const handleAddMenuItemRow = () => {
+    setMenuItems((prev) => [...prev, { name: '', price: '' }]);
+  };
+
+  const handleRemoveMenuItemRow = (index: number) => {
+    setMenuItems((prev) => prev.filter((_, i) => i !== index));
+  };
+
+  const handleImageChange = (e: ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const previewUrl = URL.createObjectURL(file);
+    setNewImageUrl(previewUrl);
+  };
+
+  const handleMenuItemImageChange = (index: number, e: ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const preview = URL.createObjectURL(file);
+
+    setMenuItems((prev) => {
+      const copy = [...prev];
+      copy[index].image = preview;
+      return copy;
+    });
+  };
+
+  const handleSaveRestaurant = () => {
+    if (!newName.trim()) {
+      alert('Please enter restaurant name');
+      return;
+    }
+
+    const cleanedMenu = menuItems.filter(
+      (item) => item.name.trim() && item.price.trim()
+    );
+
+    if (editingRestaurant) {
+      // MODE EDIT: cập nhật nhà hàng
+      setRestaurantList((prev) =>
+        prev.map((r) =>
+          r.id === editingRestaurant.id
+            ? {
+              ...r,
+              name: newName,
+              address: newAddress,
+              district: newDistrict || r.district,
+              image: newImageUrl || r.image,
+              openingTime: newOpeningTime,
+              closingTime: newClosingTime,
+              description: newDescription,
+              menu: cleanedMenu,
+            }
+            : r
+        )
+      );
+    } else {
+      // MODE ADD: thêm mới
+      const newRestaurant: any = {
+        id: Date.now().toString(),
+        name: newName,
+        address: newAddress,
+        district: newDistrict || 'Quận 1',
+        image: newImageUrl || 'https://via.placeholder.com/150',
+        cuisine: ['Vietnamese'],
+        rating: 0,
+        reviews: 0,
+        isOpen: true,
+        openingTime: newOpeningTime,
+        closingTime: newClosingTime,
+        description: newDescription,
+        menu: cleanedMenu,
+      };
+
+      setRestaurantList((prev) => [newRestaurant, ...prev]);
+    }
+
+    // đóng modal + reset
+    setShowAddDialog(false);
+    setEditingRestaurant(null);
+
+    setNewName('');
+    setNewAddress('');
+    setNewOpeningTime('');
+    setNewClosingTime('');
+    setNewDescription('');
+    setNewImageUrl('');
+    setNewDistrict('');
+    setMenuItems([{ name: '', price: '' }]);
+  };
+
 
   const filteredRestaurants = restaurantList.filter(r =>
     searchQuery === '' || r.name.toLowerCase().includes(searchQuery.toLowerCase())
@@ -62,7 +242,7 @@ export default function AdminDashboard() {
             <h1 className="text-gray-900 mb-2">Admin Dashboard</h1>
             <p className="text-gray-600">Manage restaurants, users, and system analytics</p>
           </div>
-          
+
           {/* Admin Profile Dropdown */}
           <div className="relative" ref={dropdownRef}>
             <button
@@ -112,7 +292,7 @@ export default function AdminDashboard() {
               <div className="p-3 bg-orange-100 rounded-lg">
                 <Store className="w-6 h-6 text-orange-600" />
               </div>
-              <span className="text-orange-600 text-sm">{stats.pendingApprovals} pending</span>
+
             </div>
             <h3 className="text-2xl text-gray-900 mb-1">{stats.totalRestaurants}</h3>
             <p className="text-gray-600 text-sm">Restaurants</p>
@@ -147,48 +327,35 @@ export default function AdminDashboard() {
             <div className="flex overflow-x-auto">
               <button
                 onClick={() => setActiveTab('overview')}
-                className={`px-6 py-4 whitespace-nowrap transition-colors ${
-                  activeTab === 'overview'
-                    ? 'border-b-2 border-[#FF6B35] text-[#FF6B35]'
-                    : 'text-gray-600 hover:text-gray-900'
-                }`}
+                className={`px-6 py-4 whitespace-nowrap transition-colors ${activeTab === 'overview'
+                  ? 'border-b-2 border-[#FF6B35] text-[#FF6B35]'
+                  : 'text-gray-600 hover:text-gray-900'
+                  }`}
               >
                 <BarChart3 className="w-5 h-5 inline mr-2" />
                 Overview
               </button>
               <button
                 onClick={() => setActiveTab('restaurants')}
-                className={`px-6 py-4 whitespace-nowrap transition-colors ${
-                  activeTab === 'restaurants'
-                    ? 'border-b-2 border-[#FF6B35] text-[#FF6B35]'
-                    : 'text-gray-600 hover:text-gray-900'
-                }`}
+                className={`px-6 py-4 whitespace-nowrap transition-colors ${activeTab === 'restaurants'
+                  ? 'border-b-2 border-[#FF6B35] text-[#FF6B35]'
+                  : 'text-gray-600 hover:text-gray-900'
+                  }`}
               >
                 <Store className="w-5 h-5 inline mr-2" />
                 Restaurants
               </button>
               <button
                 onClick={() => setActiveTab('users')}
-                className={`px-6 py-4 whitespace-nowrap transition-colors ${
-                  activeTab === 'users'
-                    ? 'border-b-2 border-[#FF6B35] text-[#FF6B35]'
-                    : 'text-gray-600 hover:text-gray-900'
-                }`}
+                className={`px-6 py-4 whitespace-nowrap transition-colors ${activeTab === 'users'
+                  ? 'border-b-2 border-[#FF6B35] text-[#FF6B35]'
+                  : 'text-gray-600 hover:text-gray-900'
+                  }`}
               >
                 <Users className="w-5 h-5 inline mr-2" />
                 Users
               </button>
-              <button
-                onClick={() => setActiveTab('analytics')}
-                className={`px-6 py-4 whitespace-nowrap transition-colors ${
-                  activeTab === 'analytics'
-                    ? 'border-b-2 border-[#FF6B35] text-[#FF6B35]'
-                    : 'text-gray-600 hover:text-gray-900'
-                }`}
-              >
-                <TrendingUp className="w-5 h-5 inline mr-2" />
-                Analytics
-              </button>
+
             </div>
           </div>
 
@@ -203,16 +370,17 @@ export default function AdminDashboard() {
                       { action: 'New user registered', name: 'Sarah Johnson', time: '5 minutes ago', type: 'user' },
                       { action: 'New review posted', name: 'Phở Hòa Pasteur', time: '12 minutes ago', type: 'review' },
                       { action: 'New tour created', name: 'District 1 Food Tour', time: '1 hour ago', type: 'tour' },
-                      { action: 'Restaurant pending approval', name: 'Bún Bò Huế An Phú', time: '2 hours ago', type: 'pending' }
+                      { action: 'New restaurant added', name: 'Bún Bò Huế An Phú', time: '2 hours ago', type: 'pending' }
+
+
                     ].map((activity, idx) => (
                       <div key={idx} className="flex items-center justify-between p-4 bg-gray-50 rounded-lg">
                         <div className="flex items-center gap-3">
-                          <div className={`w-10 h-10 rounded-full flex items-center justify-center ${
-                            activity.type === 'user' ? 'bg-blue-100 text-blue-600' :
+                          <div className={`w-10 h-10 rounded-full flex items-center justify-center ${activity.type === 'user' ? 'bg-blue-100 text-blue-600' :
                             activity.type === 'review' ? 'bg-yellow-100 text-yellow-600' :
-                            activity.type === 'tour' ? 'bg-purple-100 text-purple-600' :
-                            'bg-orange-100 text-orange-600'
-                          }`}>
+                              activity.type === 'tour' ? 'bg-purple-100 text-purple-600' :
+                                'bg-orange-100 text-orange-600'
+                            }`}>
                             {activity.type === 'user' && <Users className="w-5 h-5" />}
                             {activity.type === 'review' && <Star className="w-5 h-5" />}
                             {activity.type === 'tour' && <TrendingUp className="w-5 h-5" />}
@@ -269,7 +437,7 @@ export default function AdminDashboard() {
                     />
                   </div>
                   <button
-                    onClick={() => setShowAddDialog(true)}
+                    onClick={openAddDialog}
                     className="bg-[#FF6B35] text-white px-6 py-3 rounded-lg hover:bg-[#FF5722] transition-colors flex items-center gap-2"
                   >
                     <Plus className="w-5 h-5" />
@@ -315,17 +483,19 @@ export default function AdminDashboard() {
                             </div>
                           </td>
                           <td className="py-4 px-4">
-                            <span className={`px-3 py-1 rounded-full text-xs ${
-                              restaurant.isOpen
-                                ? 'bg-green-100 text-green-700'
-                                : 'bg-gray-100 text-gray-700'
-                            }`}>
+                            <span className={`px-3 py-1 rounded-full text-xs ${restaurant.isOpen
+                              ? 'bg-green-100 text-green-700'
+                              : 'bg-gray-100 text-gray-700'
+                              }`}>
                               {restaurant.isOpen ? 'Open' : 'Closed'}
                             </span>
                           </td>
                           <td className="py-4 px-4">
                             <div className="flex items-center justify-end gap-2">
-                              <button className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors">
+                              <button
+                                onClick={() => openEditDialog(restaurant)}
+                                className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                              >
                                 <Edit className="w-4 h-4" />
                               </button>
                               <button
@@ -399,74 +569,7 @@ export default function AdminDashboard() {
               </div>
             )}
 
-            {/* Analytics Tab */}
-            {activeTab === 'analytics' && (
-              <div className="space-y-6">
-                <div>
-                  <h2 className="text-gray-900 mb-4">New User Growth</h2>
-                  <div className="bg-gray-50 rounded-xl p-8 h-64 flex items-end justify-around gap-2">
-                    {[45, 62, 58, 71, 84, 95, 124].map((value, idx) => (
-                      <div key={idx} className="flex-1 flex flex-col items-center gap-2">
-                        <div
-                          className="w-full bg-gradient-to-t from-[#FF6B35] to-[#FF8C61] rounded-t-lg transition-all hover:opacity-80"
-                          style={{ height: `${(value / 124) * 100}%` }}
-                        />
-                        <span className="text-xs text-gray-600">W{idx + 2}</span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <div>
-                    <h3 className="text-gray-900 mb-4">Popular Cuisines</h3>
-                    <div className="space-y-3">
-                      {[
-                        { name: 'Vietnamese', percentage: 85 },
-                        { name: 'Bánh mì', percentage: 72 },
-                        { name: 'Coffee', percentage: 68 },
-                        { name: 'Seafood', percentage: 54 },
-                        { name: 'Noodles', percentage: 45 }
-                      ].map((cuisine) => (
-                        <div key={cuisine.name}>
-                          <div className="flex items-center justify-between mb-1">
-                            <span className="text-gray-700">{cuisine.name}</span>
-                            <span className="text-gray-600">{cuisine.percentage}%</span>
-                          </div>
-                          <div className="w-full bg-gray-200 rounded-full h-2">
-                            <div
-                              className="bg-[#FF6B35] h-2 rounded-full transition-all"
-                              style={{ width: `${cuisine.percentage}%` }}
-                            />
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-
-                  <div>
-                    <h3 className="text-gray-900 mb-4">Top Search Districts</h3>
-                    <div className="space-y-3">
-                      {[
-                        { name: 'District 1', count: 3254 },
-                        { name: 'District 3', count: 2187 },
-                        { name: 'District 4', count: 1843 },
-                        { name: 'District 5', count: 1562 },
-                        { name: 'District 7', count: 1423 }
-                      ].map((district, idx) => (
-                        <div key={district.name} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-                          <div className="flex items-center gap-3">
-                            <span className="text-lg text-gray-400">#{idx + 1}</span>
-                            <span className="text-gray-900">{district.name}</span>
-                          </div>
-                          <span className="text-[#FF6B35]">{district.count.toLocaleString()} searches</span>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                </div>
-              </div>
-            )}
           </div>
         </div>
       </div>
@@ -474,76 +577,222 @@ export default function AdminDashboard() {
       {/* Add Restaurant Dialog */}
       {showAddDialog && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl max-w-2xl w-full p-6">
-            <div className="flex items-center justify-between mb-6">
-              <h2 className="text-gray-900">Add New Restaurant</h2>
-              <button
-                onClick={() => setShowAddDialog(false)}
-                className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
-              >
-                <X className="w-5 h-5" />
-              </button>
+          <div className="bg-white rounded-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+            <div className="p-6">
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-gray-900 text-lg font-semibold">
+                  {editingRestaurant ? 'Edit Restaurant' : 'Add New Restaurant'}
+                </h2>
+                <button
+                  onClick={() => setShowAddDialog(false)}
+                  className="p-1.5 hover:bg-gray-100 rounded-lg transition-colors"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              {/* Restaurant Name */}
+              <div className="mb-3">
+                <label className="block text-gray-700 mb-1 text-sm">Restaurant Name</label>
+                <input
+                  type="text"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg outline-none focus:ring-2 focus:ring-[#FF6B35] text-sm"
+                  placeholder="Enter restaurant name"
+                  value={newName}
+                  onChange={(e) => setNewName(e.target.value)}
+                />
+              </div>
+
+              {/* Address */}
+              <div className="mb-3">
+                <label className="block text-gray-700 mb-1 text-sm">Address</label>
+                <input
+                  type="text"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg outline-none focus:ring-2 focus:ring-[#FF6B35] text-sm"
+                  placeholder="Enter full address"
+                  value={newAddress}
+                  onChange={(e) => setNewAddress(e.target.value)}
+                />
+              </div>
+
+              {/* Image + District */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-3">
+                <div>
+                  <label className="block text-gray-700 mb-1 text-sm">Restaurant Image</label>
+                  <div className="flex items-center gap-3">
+                    <div className="w-16 h-16 rounded-lg overflow-hidden bg-gray-100 flex items-center justify-center">
+                      {newImageUrl ? (
+                        <img src={newImageUrl} alt="Preview" className="w-full h-full object-cover" />
+                      ) : (
+                        <span className="text-[10px] text-gray-400 text-center px-2">No image</span>
+                      )}
+                    </div>
+                    <div>
+                      <label
+                        htmlFor="restaurantImage"
+                        className="inline-flex items-center justify-center px-3 py-1.5 border border-gray-300 rounded-lg text-xs text-gray-700 cursor-pointer hover:bg-gray-50 whitespace-nowrap"
+                      >
+                        Choose image
+                      </label>
+                      <input
+                        id="restaurantImage"
+                        type="file"
+                        accept="image/*"
+                        className="hidden"
+                        onChange={handleImageChange}
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-gray-700 mb-1 text-sm">District</label>
+                  <input
+                    type="text"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg outline-none focus:ring-2 focus:ring-[#FF6B35] text-sm"
+                    placeholder="Quận 1"
+                    value={newDistrict}
+                    onChange={(e) => setNewDistrict(e.target.value)}
+                  />
+                </div>
+              </div>
+
+              {/* Opening / Closing Time */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-3">
+                <div>
+                  <label className="block text-gray-700 mb-1 text-sm">Opening Time</label>
+                  <input
+                    type="time"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg outline-none focus:ring-2 focus:ring-[#FF6B35] text-sm"
+                    value={newOpeningTime}
+                    onChange={(e) => setNewOpeningTime(e.target.value)}
+                  />
+                </div>
+                <div>
+                  <label className="block text-gray-700 mb-1 text-sm">Closing Time</label>
+                  <input
+                    type="time"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg outline-none focus:ring-2 focus:ring-[#FF6B35] text-sm"
+                    value={newClosingTime}
+                    onChange={(e) => setNewClosingTime(e.target.value)}
+                  />
+                </div>
+              </div>
+
+              {/* Description */}
+              <div className="mb-3">
+                <label className="block text-gray-700 mb-1 text-sm">Description</label>
+                <textarea
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg outline-none focus:ring-2 focus:ring-[#FF6B35] resize-none text-sm"
+                  rows={3}
+                  placeholder="Describe the restaurant"
+                  value={newDescription}
+                  onChange={(e) => setNewDescription(e.target.value)}
+                />
+              </div>
+
+              {/* Menu (Dishes) */}
+              <div className="mb-4">
+                <label className="block text-gray-700 mb-2 text-sm">Menu (Dishes)</label>
+
+                <div className="space-y-2">
+                  {menuItems.map((item, index) => (
+                    <div
+                      key={index}
+                      className="flex flex-col md:flex-row items-center gap-3 p-3 border border-gray-200 rounded-lg"
+                    >
+                      {/* Image + button */}
+                      <div className="flex items-center gap-3 w-full md:w-auto">
+                        <div className="w-16 h-16 rounded-lg overflow-hidden bg-gray-100 flex items-center justify-center border shrink-0">
+                          {item.image ? (
+                            <img
+                              src={item.image}
+                              alt="Dish"
+                              className="w-full h-full object-cover"
+                            />
+                          ) : (
+                            <span className="text-[10px] text-gray-400 text-center px-1">
+                              No image
+                            </span>
+                          )}
+                        </div>
+
+                        <div>
+                          <label
+                            htmlFor={`dishImage-${index}`}
+                            className="inline-flex items-center justify-center px-3 py-1.5 border border-gray-300 rounded-lg text-xs text-gray-700 cursor-pointer hover:bg-gray-50 whitespace-nowrap"
+                          >
+                            Choose image
+                          </label>
+                          <input
+                            id={`dishImage-${index}`}
+                            type="file"
+                            accept="image/*"
+                            className="hidden"
+                            onChange={(e) => handleMenuItemImageChange(index, e)}
+                          />
+                        </div>
+                      </div>
+
+                      {/* Dish name */}
+                      <input
+                        type="text"
+                        placeholder="Dish name"
+                        value={item.name}
+                        onChange={(e) =>
+                          handleMenuItemChange(index, 'name', e.target.value)
+                        }
+                        className="flex-1 px-3 py-2 border border-gray-300 rounded-lg outline-none focus:ring-2 focus:ring-[#FF6B35] text-sm"
+                      />
+
+                      {/* Price */}
+                      <input
+                        type="text"
+                        placeholder="Price (USD)"
+                        value={item.price}
+                        onChange={(e) =>
+                          handleMenuItemChange(index, 'price', e.target.value)
+                        }
+                        className="w-full md:w-32 px-3 py-2 border border-gray-300 rounded-lg outline-none focus:ring-2 focus:ring-[#FF6B35] text-sm"
+                      />
+
+                      {/* Remove row */}
+                      {menuItems.length > 1 && (
+                        <button
+                          type="button"
+                          onClick={() => handleRemoveMenuItemRow(index)}
+                          className="text-red-500 text-xs md:text-sm"
+                        >
+                          ✕
+                        </button>
+                      )}
+                    </div>
+                  ))}
+                </div>
+
+                <button
+                  type="button"
+                  onClick={handleAddMenuItemRow}
+                  className="mt-2 text-sm text-[#FF6B35] hover:underline"
+                >
+                  + Add dish
+                </button>
+              </div>
             </div>
 
-            <div className="space-y-4">
-              <div>
-                <label className="block text-gray-700 mb-2">Restaurant Name</label>
-                <input
-                  type="text"
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg outline-none focus:ring-2 focus:ring-[#FF6B35]"
-                  placeholder="Enter restaurant name"
-                />
-              </div>
-
-              <div>
-                <label className="block text-gray-700 mb-2">Address</label>
-                <input
-                  type="text"
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg outline-none focus:ring-2 focus:ring-[#FF6B35]"
-                  placeholder="Enter full address"
-                />
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-gray-700 mb-2">Opening Time</label>
-                  <input
-                    type="time"
-                    className="w-full px-4 py-3 border border-gray-300 rounded-lg outline-none focus:ring-2 focus:ring-[#FF6B35]"
-                  />
-                </div>
-                <div>
-                  <label className="block text-gray-700 mb-2">Closing Time</label>
-                  <input
-                    type="time"
-                    className="w-full px-4 py-3 border border-gray-300 rounded-lg outline-none focus:ring-2 focus:ring-[#FF6B35]"
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-gray-700 mb-2">Description</label>
-                <textarea
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg outline-none focus:ring-2 focus:ring-[#FF6B35] resize-none"
-                  rows={4}
-                  placeholder="Describe the restaurant"
-                />
-              </div>
-
-              <div className="flex gap-3 pt-4">
-                <button
-                  onClick={() => setShowAddDialog(false)}
-                  className="flex-1 bg-[#FF6B35] text-white py-3 rounded-lg hover:bg-[#FF5722] transition-colors"
-                >
-                  Add Restaurant
-                </button>
-                <button
-                  onClick={() => setShowAddDialog(false)}
-                  className="flex-1 bg-gray-100 text-gray-700 py-3 rounded-lg hover:bg-gray-200 transition-colors"
-                >
-                  Cancel
-                </button>
-              </div>
+            <div className="border-t px-6 py-4 flex gap-3">
+              <button
+                onClick={handleSaveRestaurant}
+                className="flex-1 bg-[#FF6B35] text-white py-2.5 rounded-lg hover:bg-[#FF5722] transition-colors text-sm"
+              >
+                {editingRestaurant ? 'Save Changes' : 'Add Restaurant'}
+              </button>
+              <button
+                onClick={() => setShowAddDialog(false)}
+                className="flex-1 bg-gray-100 text-gray-700 py-2.5 rounded-lg hover:bg-gray-200 transition-colors text-sm"
+              >
+                Cancel
+              </button>
             </div>
           </div>
         </div>

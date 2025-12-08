@@ -9,7 +9,7 @@ export const RestaurantDetail = () => {
   const { id } = useParams();
   const navigate = useNavigate();
   const restaurant = MOCK_RESTAURANTS.find(r => r.id === id) || MOCK_RESTAURANTS[0];
-  
+
   const handleViewOnMap = () => {
     navigate('/planner', { state: { selectedRestaurant: restaurant } });
   };
@@ -40,45 +40,45 @@ export const RestaurantDetail = () => {
             {/* Header Card */}
             <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6 mb-8">
               <div className="flex justify-between items-start mb-4">
-                 <div>
-                   <h1 className="text-3xl md:text-4xl font-bold text-slate-800 mb-2">{restaurant.name}</h1>
-                   <div className="flex items-center gap-4 text-sm">
-                      <div className="flex items-center gap-1 text-yellow-500 font-bold">
-                        <span className="text-lg">{restaurant.rating}</span>
-                        <div className="flex">
-                          {[1,2,3,4,5].map(s => <Star key={s} className={`w-4 h-4 ${s <= Math.round(restaurant.rating) ? 'fill-current' : 'text-gray-300'}`} />)}
-                        </div>
+                <div>
+                  <h1 className="text-3xl md:text-4xl font-bold text-slate-800 mb-2">{restaurant.name}</h1>
+                  <div className="flex items-center gap-4 text-sm">
+                    <div className="flex items-center gap-1 text-yellow-500 font-bold">
+                      <span className="text-lg">{restaurant.rating}</span>
+                      <div className="flex">
+                        {[1, 2, 3, 4, 5].map(s => <Star key={s} className={`w-4 h-4 ${s <= Math.round(restaurant.rating) ? 'fill-current' : 'text-gray-300'}`} />)}
                       </div>
-                      <span className="text-gray-400">({restaurant.reviewCount} reviews)</span>
-                      <span className="text-gray-300">|</span>
-                      <span className="font-medium text-slate-600">{restaurant.priceRange} - {restaurant.tags.join(', ')}</span>
-                   </div>
-                 </div>
-                 <div className="flex gap-2">
-                    <button className="p-2 rounded-full border border-gray-200 hover:bg-gray-50 text-gray-500">
-                      <Share2 className="w-5 h-5" />
-                    </button>
-                    <button className="p-2 rounded-full border border-gray-200 hover:border-red-500 hover:text-red-500 text-gray-500 transition-colors">
-                      <Heart className="w-5 h-5" />
-                    </button>
-                 </div>
+                    </div>
+                    <span className="text-gray-400">({restaurant.reviewCount} reviews)</span>
+                    <span className="text-gray-300">|</span>
+                    <span className="font-medium text-slate-600">{restaurant.priceRange} - {restaurant.tags.join(', ')}</span>
+                  </div>
+                </div>
+                <div className="flex gap-2">
+                  <button className="p-2 rounded-full border border-gray-200 hover:bg-gray-50 text-gray-500">
+                    <Share2 className="w-5 h-5" />
+                  </button>
+                  <button className="p-2 rounded-full border border-gray-200 hover:border-red-500 hover:text-red-500 text-gray-500 transition-colors">
+                    <Heart className="w-5 h-5" />
+                  </button>
+                </div>
               </div>
 
               <div className="flex items-center gap-4 mb-6">
-                 {restaurant.openNow ? (
-                   <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-green-100 text-green-700 text-sm font-bold">
-                     <CheckCircle className="w-4 h-4" /> Open Now
-                   </span>
-                 ) : (
-                    <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-red-100 text-red-700 text-sm font-bold">
-                     Closed
-                   </span>
-                 )}
-                 <span className="text-gray-500 text-sm">Closes at 10:00 PM</span>
+                {restaurant.openNow ? (
+                  <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-green-100 text-green-700 text-sm font-bold">
+                    <CheckCircle className="w-4 h-4" /> Open Now
+                  </span>
+                ) : (
+                  <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-red-100 text-red-700 text-sm font-bold">
+                    Closed
+                  </span>
+                )}
+                <span className="text-gray-500 text-sm">Closes at 10:00 PM</span>
               </div>
 
               <div className="flex gap-4 flex-wrap">
-                <button 
+                <button
                   onClick={handleViewOnMap}
                   className="flex-1 bg-[#FF6B35] text-white font-bold py-3 px-6 rounded-lg hover:bg-[#e55a2b] transition-colors shadow-lg shadow-orange-200 flex items-center justify-center gap-2"
                 >
@@ -122,80 +122,80 @@ export const RestaurantDetail = () => {
               </div>
             )}
 
-             {/* Reviews */}
-             <div className="mb-8">
-               <h2 className="text-xl font-bold text-slate-800 mb-4">Reviews</h2>
-               <div className="space-y-6">
-                 {restaurant.reviews.map(review => (
-                   <div key={review.id} className="border-b border-gray-100 pb-6">
-                      <div className="flex items-center gap-3 mb-3">
-                        <img src={review.avatar} alt={review.user} className="w-10 h-10 rounded-full" />
-                        <div>
-                          <h4 className="font-bold text-slate-800 text-sm">{review.user}</h4>
-                          <div className="flex items-center gap-2 text-xs text-gray-500">
-                             <div className="flex text-yellow-400"><Star className="w-3 h-3 fill-current" /><Star className="w-3 h-3 fill-current" /><Star className="w-3 h-3 fill-current" /><Star className="w-3 h-3 fill-current" /><Star className="w-3 h-3 fill-current" /></div>
-                             <span>• {review.date}</span>
-                          </div>
+            {/* Reviews */}
+            <div className="mb-8">
+              <h2 className="text-xl font-bold text-slate-800 mb-4">Reviews</h2>
+              <div className="space-y-6">
+                {restaurant.reviews.map(review => (
+                  <div key={review.id} className="border-b border-gray-100 pb-6">
+                    <div className="flex items-center gap-3 mb-3">
+                      <img src={review.avatar} alt={review.user} className="w-10 h-10 rounded-full" />
+                      <div>
+                        <h4 className="font-bold text-slate-800 text-sm">{review.user}</h4>
+                        <div className="flex items-center gap-2 text-xs text-gray-500">
+                          <div className="flex text-yellow-400"><Star className="w-3 h-3 fill-current" /><Star className="w-3 h-3 fill-current" /><Star className="w-3 h-3 fill-current" /><Star className="w-3 h-3 fill-current" /><Star className="w-3 h-3 fill-current" /></div>
+                          <span>• {review.date}</span>
                         </div>
                       </div>
-                      <p className="text-slate-600 text-sm leading-relaxed">{review.text}</p>
-                   </div>
-                 ))}
-                 <button className="w-full py-3 text-slate-500 font-medium hover:text-[#FF6B35] text-sm">View all 1,204 reviews</button>
-               </div>
-             </div>
+                    </div>
+                    <p className="text-slate-600 text-sm leading-relaxed">{review.text}</p>
+                  </div>
+                ))}
+                <button className="w-full py-3 text-slate-500 font-medium hover:text-[#FF6B35] text-sm">View all 1,204 reviews</button>
+              </div>
+            </div>
           </div>
 
           {/* Sidebar Info */}
           <div className="w-full lg:w-80 shrink-0">
             <div className="sticky top-24 space-y-6">
-               {/* Map Widget */}
-               <div className="bg-white rounded-xl border border-gray-100 overflow-hidden p-1">
-                  <div className="h-40 w-full rounded-lg overflow-hidden relative">
-                     <MockMap className="w-full h-full" restaurants={[restaurant]} zoom={14} />
+              {/* Map Widget */}
+              <div className="bg-white rounded-xl border border-gray-100 overflow-hidden p-1">
+                <div className="h-40 w-full rounded-lg overflow-hidden relative">
+                  <MockMap className="w-full h-full" restaurants={[restaurant]} zoom={14} />
+                </div>
+                <div className="p-4">
+                  <div className="flex items-start gap-3 mb-4">
+                    <MapPin className="w-5 h-5 text-gray-400 shrink-0 mt-0.5" />
+                    <span className="text-sm text-slate-600">{restaurant.address}</span>
                   </div>
-                  <div className="p-4">
-                    <div className="flex items-start gap-3 mb-4">
-                       <MapPin className="w-5 h-5 text-gray-400 shrink-0 mt-0.5" />
-                       <span className="text-sm text-slate-600">{restaurant.address}</span>
-                    </div>
-                    <button className="w-full py-2 bg-blue-50 text-[#2E86AB] text-sm font-bold rounded-lg hover:bg-blue-100 transition-colors" onClick={handleViewOnMap}>
-                      Get Directions
-                    </button>
-                  </div>
-               </div>
+                  <button className="w-full py-2 bg-blue-50 text-[#2E86AB] text-sm font-bold rounded-lg hover:bg-blue-100 transition-colors" onClick={handleViewOnMap}>
+                    Get Directions
+                  </button>
+                </div>
+              </div>
 
-               {/* Info Widget */}
-               <div className="bg-white rounded-xl border border-gray-100 p-6">
-                  <h3 className="font-bold text-slate-800 mb-4">Information</h3>
-                  <div className="space-y-4">
-                     <div className="flex items-center justify-between text-sm">
-                       <span className="flex items-center gap-2 text-gray-500"><Clock className="w-4 h-4" /> Mon-Fri</span>
-                       <span className="font-medium">10:00 AM - 10:00 PM</span>
-                     </div>
-                     <div className="flex items-center justify-between text-sm">
-                       <span className="flex items-center gap-2 text-gray-500"><Clock className="w-4 h-4" /> Sat-Sun</span>
-                       <span className="font-medium">9:00 AM - 11:00 PM</span>
-                     </div>
-                     <hr className="border-gray-100" />
-                     <div className="flex items-center justify-between text-sm">
-                       <span className="flex items-center gap-2 text-gray-500"><Phone className="w-4 h-4" /> Phone</span>
-                       <span className="font-medium text-[#2E86AB]">+84 90 123 4567</span>
-                     </div>
+              {/* Info Widget */}
+              <div className="bg-white rounded-xl border border-gray-100 p-6">
+                <h3 className="font-bold text-slate-800 mb-4">Information</h3>
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="flex items-center gap-2 text-gray-500"><Clock className="w-4 h-4" /> Mon-Fri</span>
+                    <span className="font-medium">10:00 AM - 10:00 PM</span>
                   </div>
-               </div>
-               
-               {/* Amenities */}
-               <div className="bg-white rounded-xl border border-gray-100 p-6">
-                  <h3 className="font-bold text-slate-800 mb-4">Amenities</h3>
-                  <div className="flex flex-wrap gap-2">
-                     {restaurant.amenities.map(am => (
-                       <span key={am} className="px-3 py-1.5 bg-gray-50 text-gray-600 rounded-full text-xs font-medium border border-gray-100">
-                         {am}
-                       </span>
-                     ))}
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="flex items-center gap-2 text-gray-500"><Clock className="w-4 h-4" /> Sat-Sun</span>
+                    <span className="font-medium">9:00 AM - 11:00 PM</span>
                   </div>
-               </div>
+                  <hr className="border-gray-100" />
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="flex items-center gap-2 text-gray-500"><Phone className="w-4 h-4" /> Phone</span>
+                    <span className="font-medium text-[#2E86AB]">+84 90 123 4567</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Amenities */}
+              <div className="bg-white rounded-xl border border-gray-100 p-6">
+                <h3 className="font-bold text-slate-800 mb-4">Amenities</h3>
+                <div className="flex flex-wrap gap-2">
+                  {restaurant.amenities.map(am => (
+                    <span key={am} className="px-3 py-1.5 bg-gray-50 text-gray-600 rounded-full text-xs font-medium border border-gray-100">
+                      {am}
+                    </span>
+                  ))}
+                </div>
+              </div>
             </div>
           </div>
         </div>

@@ -100,7 +100,9 @@ export const MOCK_RESTAURANTS: Restaurant[] = [
     openNow: false,
     description: "Elegant riverside dining with a stunning sunset view and asian-fusion cuisine.",
     amenities: ["Wifi", "Valet Parking", "Bar"],
-    dishes: [],
+    dishes: [
+      { id: "d4", name: "Bánh Mì Đặc Biệt", price: "$2.50", image: "https://images.unsplash.com/photo-1553909489-cd47e0907980?auto=format&fit=crop&w=400&q=80", isSignature: true },
+    ],
     reviews: []
   },
   {
@@ -117,7 +119,9 @@ export const MOCK_RESTAURANTS: Restaurant[] = [
     openNow: true,
     description: "Authentic home-cooked style Vietnamese food served on a charming rooftop lantern-lit terrace.",
     amenities: ["Wifi", "Rooftop"],
-    dishes: [],
+    dishes: [
+      { id: "d5", name: "Bánh Mì Đặc Biệt", price: "$2.50", image: "https://images.unsplash.com/photo-1553909489-cd47e0907980?auto=format&fit=crop&w=400&q=80", isSignature: true },
+    ],
     reviews: []
   },
   {
@@ -134,7 +138,9 @@ export const MOCK_RESTAURANTS: Restaurant[] = [
     openNow: true,
     description: "Japanese-Italian fusion pizza famous for their house-made cheeses.",
     amenities: ["Wifi", "AC", "Reservations Recommended"],
-    dishes: [],
+    dishes: [
+      { id: "d6", name: "Bánh Mì Đặc Biệt", price: "$2.50", image: "https://images.unsplash.com/photo-1553909489-cd47e0907980?auto=format&fit=crop&w=400&q=80", isSignature: true },
+    ],
     reviews: []
   },
   {
@@ -151,7 +157,9 @@ export const MOCK_RESTAURANTS: Restaurant[] = [
     openNow: true,
     description: "A rustic villa serving traditional Vietnamese countryside dishes.",
     amenities: ["Wifi", "Garden"],
-    dishes: [],
+    dishes: [
+      { id: "d7", name: "Bánh Mì Đặc Biệt", price: "$2.50", image: "https://images.unsplash.com/photo-1553909489-cd47e0907980?auto=format&fit=crop&w=400&q=80", isSignature: true },
+    ],
     reviews: []
   }
 ];

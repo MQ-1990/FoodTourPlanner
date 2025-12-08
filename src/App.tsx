@@ -1,6 +1,7 @@
-import React from 'react';
+import React, { useEffect } from 'react';
+import { testBackend } from './api';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
-import { Toaster } from 'sonner@2.0.3';
+import { Toaster } from 'sonner';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { Layout } from './components/Layout';
 import { Home } from './pages/Home';
@@ -27,47 +28,57 @@ const AdminRoute = ({ children }: { children: React.ReactNode }) => {
 
 const AppRoutes = () => {
   const { isAuthenticated } = useAuth();
-  
+
   return (
     <Routes>
       <Route path="/login" element={<Login />} />
       <Route path="/signup" element={<Signup />} />
-      
+
       {/* Redirect to login if not authenticated */}
       <Route path="/" element={isAuthenticated ? <Layout><Home /></Layout> : <Navigate to="/login" />} />
       <Route path="/restaurant/:id" element={<Layout><RestaurantDetail /></Layout>} />
       <Route path="/tour/:id" element={<Layout><TourDetail /></Layout>} />
-      
-      <Route 
-        path="/planner" 
+
+      <Route
+        path="/planner"
         element={
           <ProtectedRoute>
             <Layout><Planner /></Layout>
           </ProtectedRoute>
-        } 
+        }
       />
-      <Route 
-        path="/profile" 
+      <Route
+        path="/profile"
         element={
           <ProtectedRoute>
             <Layout><Profile /></Layout>
           </ProtectedRoute>
-        } 
+        }
       />
-      
-      <Route 
-        path="/admin" 
+
+      <Route
+        path="/admin"
         element={
           <AdminRoute>
             <AdminDashboard />
           </AdminRoute>
-        } 
+        }
       />
     </Routes>
   );
 };
 
 const App = () => {
+  useEffect(() => {
+    testBackend()
+      .then((data) => {
+        console.log('FE nhận từ BE:', data);
+      })
+      .catch((err) => {
+        console.error('Lỗi gọi BE:', err);
+      });
+  }, []);
+
   return (
     <BrowserRouter>
       <AuthProvider>
