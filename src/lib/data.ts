@@ -27,8 +27,8 @@ export interface Restaurant {
   address: string;
   tags: string[]; // Matches filter options
   image: string;
-  lat: number;
-  lng: number;
+  lat: number; // percent X for mock map
+  lng: number; // percent Y for mock map
   openNow: boolean;
   description: string;
   dishes: Dish[];
