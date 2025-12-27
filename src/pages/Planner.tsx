@@ -648,7 +648,7 @@ export const Planner = () => {
       stops: tourStops,
       createdAt: editingTourId
         ? myTours.find((t) => t.id === editingTourId)
-            ?.createdAt || new Date().toISOString()
+          ?.createdAt || new Date().toISOString()
         : new Date().toISOString(),
     };
 
@@ -935,9 +935,8 @@ export const Planner = () => {
       <div className="h-[calc(100vh-64px)] flex">
         {/* Left Panel - Search & Results */}
         <div
-          className={`flex flex-col bg-white border-r border-gray-200 relative transition-all duration-300 ${
-            isPanelCollapsed ? "w-20" : "w-full lg:w-[480px]"
-          }`}
+          className={`flex flex-col bg-white border-r border-gray-200 relative transition-all duration-300 ${isPanelCollapsed ? "w-20" : "w-full lg:w-[480px]"
+            }`}
         >
           {/* Minimized Sidebar */}
           {isPanelCollapsed && (
@@ -1070,101 +1069,94 @@ export const Planner = () => {
               </button>
 
               {/* Search Menu - The 2 Options */}
-              {showSearchMenu &&
-                !selectedRestaurant &&
-                !selectedTour && (
-                  <div className="flex-1 flex flex-col">
-                    <div className="p-6">
-                      <h2 className="text-2xl font-bold text-gray-900 mb-2">
-                        Search
-                      </h2>
-                      <p className="text-gray-500 mb-6">
-                        What would you like to find?
-                      </p>
+              {showSearchMenu && !selectedRestaurant && !selectedTour && (
+                <div className="flex-1 flex flex-col">
+                  <div className="p-6">
+                    <h2 className="text-2xl font-bold text-gray-900 mb-2">Search</h2>
+                    <p className="text-gray-500 mb-6">What would you like to find?</p>
 
-                      <div className="space-y-4">
-                        {/* Search Restaurants Option */}
-                        <button
-                          onClick={() => {
-                            setShowSearchMenu(false);
-                            setShowRestaurantSearch(true);
-                            setShowTourSearch(false);
-                          }}
-                          className="w-full p-4 bg-white border-2 border-gray-200 rounded-xl hover:border-[#FF6B35] hover:bg-orange-50/50 transition-all group"
-                        >
-                          <div className="flex items-center gap-4">
-                            <div className="w-14 h-14 bg-[#FF6B35] rounded-xl flex items-center justify-center group-hover:scale-105 transition-transform">
-                              <Utensils className="w-7 h-7 text-white" />
-                            </div>
-                            <div className="flex-1 text-left">
-                              <h3 className="font-bold text-gray-900 text-lg">
-                                Search Restaurants
-                              </h3>
-                              <p className="text-sm text-gray-500">
-                                Find restaurants by name,
-                                cuisine, or location
-                              </p>
-                            </div>
-                            <ChevronRight className="w-5 h-5 text-gray-400 group-hover:text-[#FF6B35] transition-colors" />
+                    <div className="space-y-4">
+                      {/* Search Restaurants Option */}
+                      <button
+                        onClick={() => {
+                          setShowSearchMenu(false)
+                          setShowRestaurantSearch(true)
+                          setShowTourSearch(false)
+                          setShowDishSearch(false)
+                        }}
+                        className="w-full p-4 bg-white border-2 border-gray-200 rounded-xl hover:border-[#FF6B35] hover:bg-orange-50/30 transition-all group"
+                      >
+                        <div className="flex items-center gap-4">
+                          {/* BIG SOLID ORANGE SQUARE */}
+                          <div
+                            className="w-16 h-16 rounded-2xl flex items-center justify-center group-hover:scale-105 transition-transform shrink-0"
+                            style={{ backgroundColor: '#FF6B35' }}
+                          >
+                            <Utensils className="w-8 h-8 text-white" />
                           </div>
-                        </button>
+                          <div className="flex-1 text-left">
+                            <h3 className="font-bold text-gray-900 text-lg">Search Restaurants</h3>
+                            <p className="text-sm text-gray-500">Find restaurants by name, cuisine, or location</p>
+                          </div>
+                          <ChevronRight className="w-5 h-5 text-gray-400 group-hover:text-[#FF6B35] transition-colors" />
+                        </div>
+                      </button>
 
-                        {/* Search Tours Option */}
-                        <button
-                          onClick={() => {
-                            setShowSearchMenu(false);
-                            setShowTourSearch(true);
-                            setShowRestaurantSearch(false);
-                          }}
-                          className="w-full p-4 bg-white border-2 border-gray-200 rounded-xl hover:border-[#2E86AB] hover:bg-blue-50/50 transition-all group"
-                        >
-                          <div className="flex items-center gap-4">
-                            <div className="w-14 h-14 bg-[#2E86AB] rounded-xl flex items-center justify-center group-hover:scale-105 transition-transform">
-                              <Route className="w-7 h-7 text-white" />
-                            </div>
-                            <div className="flex-1 text-left">
-                              <h3 className="font-bold text-gray-900 text-lg">
-                                Search Tours
-                              </h3>
-                              <p className="text-sm text-gray-500">
-                                Discover curated food tours and
-                                itineraries
-                              </p>
-                            </div>
-                            <ChevronRight className="w-5 h-5 text-gray-400 group-hover:text-[#2E86AB] transition-colors" />
+                      {/* Search Tours Option */}
+                      <button
+                        onClick={() => {
+                          setShowSearchMenu(false)
+                          setShowTourSearch(true)
+                          setShowRestaurantSearch(false)
+                          setShowDishSearch(false)
+                        }}
+                        className="w-full p-4 bg-white border-2 border-gray-200 rounded-xl hover:border-[#2E86AB] hover:bg-blue-50/30 transition-all group"
+                      >
+                        <div className="flex items-center gap-4">
+                          {/* BIG SOLID BLUE SQUARE */}
+                          <div
+                            className="w-16 h-16 rounded-2xl flex items-center justify-center group-hover:scale-105 transition-transform shrink-0"
+                            style={{ backgroundColor: '#2E86AB' }}
+                          >
+                            <Route className="w-8 h-8 text-white" />
                           </div>
-                        </button>
+                          <div className="flex-1 text-left">
+                            <h3 className="font-bold text-gray-900 text-lg">Search Tours</h3>
+                            <p className="text-sm text-gray-500">Discover curated food tours and itineraries</p>
+                          </div>
+                          <ChevronRight className="w-5 h-5 text-gray-400 group-hover:text-[#2E86AB] transition-colors" />
+                        </div>
+                      </button>
 
-                        {/* Search Dishes Option */}
-                        <button
-                          onClick={() => {
-                            setShowSearchMenu(false);
-                            setShowDishSearch(true);
-                            setShowRestaurantSearch(false);
-                            setShowTourSearch(false);
-                          }}
-                          className="w-full p-4 bg-white border-2 border-gray-200 rounded-xl hover:border-emerald-500 hover:bg-emerald-50/50 transition-all group"
-                        >
-                          <div className="flex items-center gap-4">
-                            <div className="w-14 h-14 bg-emerald-500 rounded-xl flex items-center justify-center group-hover:scale-105 transition-transform">
-                              <Soup className="w-7 h-7 text-white" />
-                            </div>
-                            <div className="flex-1 text-left">
-                              <h3 className="font-bold text-gray-900 text-lg">
-                                Search Dishes
-                              </h3>
-                              <p className="text-sm text-gray-500">
-                                Find specific foods and where to
-                                eat them
-                              </p>
-                            </div>
-                            <ChevronRight className="w-5 h-5 text-gray-400 group-hover:text-emerald-500 transition-colors" />
+                      {/* Search Dishes Option */}
+                      <button
+                        onClick={() => {
+                          setShowSearchMenu(false)
+                          setShowDishSearch(true)
+                          setShowRestaurantSearch(false)
+                          setShowTourSearch(false)
+                        }}
+                        className="w-full p-4 bg-white border-2 border-gray-200 rounded-xl hover:border-emerald-500 hover:bg-emerald-50/30 transition-all group"
+                      >
+                        <div className="flex items-center gap-4">
+                          {/* BIG SOLID GREEN SQUARE */}
+                          <div
+                            className="w-16 h-16 rounded-2xl flex items-center justify-center group-hover:scale-105 transition-transform shrink-0"
+                            style={{ backgroundColor: '#10B981' }} // Emerald-500 hex
+                          >
+                            <Soup className="w-8 h-8 text-white" />
                           </div>
-                        </button>
-                      </div>
+                          <div className="flex-1 text-left">
+                            <h3 className="font-bold text-gray-900 text-lg">Search Dishes</h3>
+                            <p className="text-sm text-gray-500">Find specific foods and where to eat them</p>
+                          </div>
+                          <ChevronRight className="w-5 h-5 text-gray-400 group-hover:text-emerald-500 transition-colors" />
+                        </div>
+                      </button>
                     </div>
                   </div>
-                )}
+                </div>
+              )}
 
               {/* Tour Search Panel */}
               {showTourSearch &&
@@ -1201,11 +1193,10 @@ export const Planner = () => {
                           onClick={() =>
                             setShowTourFilters(!showTourFilters)
                           }
-                          className={`px-3 md:px-4 py-3 rounded-lg border flex items-center gap-2 transition-colors ${
-                            showTourFilters
-                              ? "bg-[#2E86AB] text-white border-[#2E86AB]"
-                              : "border-gray-300 hover:bg-gray-50"
-                          }`}
+                          className={`px-3 md:px-4 py-3 rounded-lg border flex items-center gap-2 transition-colors ${showTourFilters
+                            ? "bg-[#2E86AB] text-white border-[#2E86AB]"
+                            : "border-gray-300 hover:bg-gray-50"
+                            }`}
                         >
                           <SlidersHorizontal className="w-5 h-5" />
                           <span className="hidden md:inline">
@@ -1279,12 +1270,11 @@ export const Planner = () => {
                                           : option.value,
                                       )
                                     }
-                                    className={`flex-1 px-3 py-2 rounded-lg border transition-colors text-sm ${
-                                      tourDurationFilter ===
+                                    className={`flex-1 px-3 py-2 rounded-lg border transition-colors text-sm ${tourDurationFilter ===
                                       option.value
-                                        ? "bg-[#2E86AB] text-white border-[#2E86AB]"
-                                        : "bg-white border-gray-300 hover:bg-gray-100"
-                                    }`}
+                                      ? "bg-[#2E86AB] text-white border-[#2E86AB]"
+                                      : "bg-white border-gray-300 hover:bg-gray-100"
+                                      }`}
                                   >
                                     {option.label}
                                   </button>
@@ -1400,11 +1390,10 @@ export const Planner = () => {
                           onClick={() =>
                             setShowDishFilters(!showDishFilters)
                           }
-                          className={`px-3 md:px-4 py-3 rounded-lg border flex items-center gap-2 transition-colors ${
-                            showDishFilters
-                              ? "bg-emerald-600 text-white border-emerald-600"
-                              : "border-gray-300 hover:bg-gray-50"
-                          }`}
+                          className={`px-3 md:px-4 py-3 rounded-lg border flex items-center gap-2 transition-colors ${showDishFilters
+                            ? "bg-emerald-600 text-white border-emerald-600"
+                            : "border-gray-300 hover:bg-gray-50"
+                            }`}
                         >
                           <SlidersHorizontal className="w-5 h-5" />
                           <span className="hidden md:inline">
@@ -1659,11 +1648,10 @@ export const Planner = () => {
                           onClick={() =>
                             setShowFilters(!showFilters)
                           }
-                          className={`px-3 md:px-4 py-3 rounded-lg border flex items-center gap-2 transition-colors ${
-                            showFilters
-                              ? "bg-[#FF6B35] text-white border-[#FF6B35]"
-                              : "border-gray-300 hover:bg-gray-50"
-                          }`}
+                          className={`px-3 md:px-4 py-3 rounded-lg border flex items-center gap-2 transition-colors ${showFilters
+                            ? "bg-[#FF6B35] text-white border-[#FF6B35]"
+                            : "border-gray-300 hover:bg-gray-50"
+                            }`}
                         >
                           <SlidersHorizontal className="w-5 h-5" />
                           <span className="hidden md:inline">
@@ -1721,11 +1709,10 @@ export const Planner = () => {
                                           : p,
                                       )
                                     }
-                                    className={`flex-1 px-3 py-2 rounded-lg border transition-colors ${
-                                      selectedPrice === p
-                                        ? "bg-[#FF6B35] text-white border-[#FF6B35]"
-                                        : "bg-white border-gray-300 hover:bg-gray-100"
-                                    }`}
+                                    className={`flex-1 px-3 py-2 rounded-lg border transition-colors ${selectedPrice === p
+                                      ? "bg-[#FF6B35] text-white border-[#FF6B35]"
+                                      : "bg-white border-gray-300 hover:bg-gray-100"
+                                      }`}
                                   >
                                     {p}
                                   </button>
@@ -1820,11 +1807,10 @@ export const Planner = () => {
                                             restaurant,
                                           )
                                         }
-                                        className={`px-3 py-1 rounded-lg text-sm transition-colors flex-shrink-0 ${
-                                          isSelected
-                                            ? "bg-[#2E86AB] text-white"
-                                            : "bg-gray-100 text-gray-700 hover:bg-gray-200"
-                                        }`}
+                                        className={`px-3 py-1 rounded-lg text-sm transition-colors flex-shrink-0 ${isSelected
+                                          ? "bg-[#2E86AB] text-white"
+                                          : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+                                          }`}
                                       >
                                         {isSelected
                                           ? "✓ Added"
@@ -2387,7 +2373,7 @@ export const Planner = () => {
                               {Array.isArray(selectedTour.stops)
                                 ? selectedTour.stops.length
                                 : typeof selectedTour.stops ===
-                                    "number"
+                                  "number"
                                   ? selectedTour.stops
                                   : 0}{" "}
                               stops
@@ -2480,14 +2466,13 @@ export const Planner = () => {
                                     );
                                   }
                                 }}
-                                className={`flex items-center justify-center gap-2 px-4 py-3 rounded-lg font-medium transition-colors ${
-                                  savedTours.find(
-                                    (t) =>
-                                      t.id === selectedTour.id,
-                                  )
-                                    ? "bg-pink-100 text-pink-600 border border-pink-200 hover:bg-pink-200"
-                                    : "bg-white text-gray-600 border border-gray-300 hover:bg-gray-50"
-                                }`}
+                                className={`flex items-center justify-center gap-2 px-4 py-3 rounded-lg font-medium transition-colors ${savedTours.find(
+                                  (t) =>
+                                    t.id === selectedTour.id,
+                                )
+                                  ? "bg-pink-100 text-pink-600 border border-pink-200 hover:bg-pink-200"
+                                  : "bg-white text-gray-600 border border-gray-300 hover:bg-gray-50"
+                                  }`}
                                 title={
                                   savedTours.find(
                                     (t) =>
@@ -2568,14 +2553,13 @@ export const Planner = () => {
                                     );
                                   }
                                 }}
-                                className={`flex items-center justify-center gap-2 px-4 py-3 rounded-lg font-medium transition-colors ${
-                                  savedTours.find(
-                                    (t) =>
-                                      t.id === selectedTour.id,
-                                  )
-                                    ? "bg-pink-100 text-pink-600 border border-pink-200 hover:bg-pink-200"
-                                    : "bg-white text-gray-600 border border-gray-300 hover:bg-gray-50"
-                                }`}
+                                className={`flex items-center justify-center gap-2 px-4 py-3 rounded-lg font-medium transition-colors ${savedTours.find(
+                                  (t) =>
+                                    t.id === selectedTour.id,
+                                )
+                                  ? "bg-pink-100 text-pink-600 border border-pink-200 hover:bg-pink-200"
+                                  : "bg-white text-gray-600 border border-gray-300 hover:bg-gray-50"
+                                  }`}
                               >
                                 <Bookmark
                                   className={`w-4 h-4 ${savedTours.find((t) => t.id === selectedTour.id) ? "fill-current" : ""}`}
@@ -2849,14 +2833,13 @@ export const Planner = () => {
                               selectedRestaurant,
                             )
                           }
-                          className={`px-4 py-2 rounded-lg font-medium transition-colors flex-shrink-0 ${
-                            tourStops.find(
-                              (s) =>
-                                s.id === selectedRestaurant.id,
-                            )
-                              ? "bg-[#2E86AB] text-white"
-                              : "bg-[#FF6B35] text-white hover:bg-[#e55a2b]"
-                          }`}
+                          className={`px-4 py-2 rounded-lg font-medium transition-colors flex-shrink-0 ${tourStops.find(
+                            (s) =>
+                              s.id === selectedRestaurant.id,
+                          )
+                            ? "bg-[#2E86AB] text-white"
+                            : "bg-[#FF6B35] text-white hover:bg-[#e55a2b]"
+                            }`}
                         >
                           {tourStops.find(
                             (s) =>
@@ -2931,7 +2914,7 @@ export const Planner = () => {
                       {/* Amenities */}
                       {selectedRestaurant.amenities &&
                         selectedRestaurant.amenities.length >
-                          0 && (
+                        0 && (
                           <div className="pt-4 border-t border-gray-200">
                             <h3 className="font-bold text-gray-900 mb-3">
                               Amenities
@@ -2955,7 +2938,7 @@ export const Planner = () => {
                       {/* Menu Preview */}
                       {selectedRestaurant.dishes &&
                         selectedRestaurant.dishes.length >
-                          0 && (
+                        0 && (
                           <div className="pt-4 border-t border-gray-200">
                             <h3 className="font-bold text-gray-900 mb-3">
                               Menu Highlights
@@ -3280,11 +3263,10 @@ export const Planner = () => {
                                         ]);
                                       }
                                     }}
-                                    className={`text-xs px-2 py-1 rounded-full transition-colors ${
-                                      tourTags.includes(tag)
-                                        ? "bg-[#FF6B35] text-white"
-                                        : "bg-gray-100 text-gray-600 hover:bg-gray-200"
-                                    }`}
+                                    className={`text-xs px-2 py-1 rounded-full transition-colors ${tourTags.includes(tag)
+                                      ? "bg-[#FF6B35] text-white"
+                                      : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+                                      }`}
                                   >
                                     {tag}
                                   </button>
@@ -3378,11 +3360,10 @@ export const Planner = () => {
                                   ]);
                                 }
                               }}
-                              className={`px-3 py-1 rounded-full text-xs font-medium transition-colors ${
-                                tourTags.includes(tag)
-                                  ? "bg-[#FF6B35] text-white"
-                                  : "bg-white border border-gray-200 text-gray-600 hover:border-[#FF6B35]"
-                              }`}
+                              className={`px-3 py-1 rounded-full text-xs font-medium transition-colors ${tourTags.includes(tag)
+                                ? "bg-[#FF6B35] text-white"
+                                : "bg-white border border-gray-200 text-gray-600 hover:border-[#FF6B35]"
+                                }`}
                             >
                               {tag}
                             </button>
@@ -3498,8 +3479,8 @@ export const Planner = () => {
                 // Check if this restaurant is part of the currently viewed tour
                 const isInViewedTour = selectedTour
                   ? getTourRestaurants(selectedTour).find(
-                      (r) => r.id === restaurant.id,
-                    )
+                    (r) => r.id === restaurant.id,
+                  )
                   : false;
                 // Use restaurant's lat/lng for positioning
                 const x = restaurant.lat;
