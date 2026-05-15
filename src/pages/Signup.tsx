@@ -2,6 +2,8 @@ import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { UtensilsCrossed, Mail, Lock, User, AlertCircle, CheckCircle } from 'lucide-react';
 
+const API_URL = 'http://localhost:5000';
+
 export const Signup = () => {
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
@@ -11,10 +13,11 @@ export const Signup = () => {
   const [success, setSuccess] = useState(false);
   const navigate = useNavigate();
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
 
+    // Validate FE
     if (password !== confirmPassword) {
       setError('Passwords do not match');
       return;
@@ -25,11 +28,43 @@ export const Signup = () => {
       return;
     }
 
-    // Simulate signup success
-    setSuccess(true);
-    setTimeout(() => {
-      navigate('/login');
-    }, 2000);
+    try {
+      const res = await fetch(`${API_URL}/api/auth/signup`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          email,
+          username: name,
+          password,
+        }),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        setError(data.message || 'Signup failed');
+        return;
+      }
+
+      // Signup thành công
+      setSuccess(true);
+
+      // (optional) clear form
+      setName('');
+      setEmail('');
+      setPassword('');
+      setConfirmPassword('');
+
+      // Redirect về login sau 2s
+      setTimeout(() => {
+        navigate('/login');
+      }, 2000);
+    } catch (err) {
+      console.error(err);
+      setError('Cannot connect to server');
+    }
   };
 
   return (

@@ -1,5 +1,5 @@
 export interface Restaurant {
-  id: string;
+  id: number;
   name: string;
   image: string;
   cuisine: string[];
@@ -8,9 +8,11 @@ export interface Restaurant {
   reviews: number;
   isOpen: boolean;
   address: string;
+  tags?: string[];
   lat: number;
   lng: number;
   priceRange: string;
+
 }
 
 export interface Tour {
@@ -28,7 +30,7 @@ export interface Tour {
 
 export const restaurants: Restaurant[] = [
   {
-    id: "1",
+    id: 1,
     name: "Phở Hòa Pasteur",
     image: "https://images.unsplash.com/photo-1582878826629-29b7ad1cdc43?auto=format&fit=crop&w=800&q=80",
     cuisine: ["Vietnamese", "Phở"],
@@ -42,7 +44,7 @@ export const restaurants: Restaurant[] = [
     priceRange: "$$"
   },
   {
-    id: "2",
+    id: 2,
     name: "Bánh Mì Huỳnh Hoa",
     image: "https://images.unsplash.com/photo-1553909489-cd47e0907980?auto=format&fit=crop&w=800&q=80",
     cuisine: ["Vietnamese", "Bánh Mì"],
@@ -56,7 +58,7 @@ export const restaurants: Restaurant[] = [
     priceRange: "$"
   },
   {
-    id: "3",
+    id: 3,
     name: "The Deck Saigon",
     image: "https://images.unsplash.com/photo-1514362545857-3bc16c4c7d1b?auto=format&fit=crop&w=800&q=80",
     cuisine: ["Fine Dining", "Fusion"],
@@ -70,7 +72,7 @@ export const restaurants: Restaurant[] = [
     priceRange: "$$$$"
   },
   {
-    id: "4",
+    id: 4,
     name: "Pizza 4P's Ben Thanh",
     image: "https://images.unsplash.com/photo-1574129645730-0968ac20c512?auto=format&fit=crop&w=800&q=80",
     cuisine: ["Italian", "Pizza"],
@@ -84,7 +86,7 @@ export const restaurants: Restaurant[] = [
     priceRange: "$$$"
   },
   {
-    id: "5",
+    id: 5,
     name: "Cục Gạch Quán",
     image: "https://images.unsplash.com/photo-1559339352-11d035aa65de?auto=format&fit=crop&w=800&q=80",
     cuisine: ["Vietnamese", "Traditional"],
@@ -98,7 +100,7 @@ export const restaurants: Restaurant[] = [
     priceRange: "$$"
   },
   {
-    id: "6",
+    id: 6,
     name: "Secret Garden",
     image: "https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?auto=format&fit=crop&w=800&q=80",
     cuisine: ["Vietnamese", "Rooftop"],

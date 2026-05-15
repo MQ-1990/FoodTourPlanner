@@ -10,12 +10,12 @@ export const Login = () => {
   const { login } = useAuth();
   const navigate = useNavigate();
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
 
-    const success = login(email, password);
-    
+    const success = await login(email, password); // <-- thêm await vì login là async
+
     if (success) {
       // Check if admin
       const user = JSON.parse(localStorage.getItem('currentUser') || '{}');
@@ -53,7 +53,7 @@ export const Login = () => {
 
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
-                Email or Username
+                Email
               </label>
               <div className="relative">
                 <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
@@ -102,22 +102,7 @@ export const Login = () => {
             </p>
           </div>
 
-          {/* Demo Credentials */}
-          <div className="mt-6 pt-6 border-t border-gray-200">
-            <p className="text-xs text-gray-500 text-center mb-3">Demo Credentials:</p>
-            <div className="space-y-2 text-xs text-gray-600">
-              <div className="bg-gray-50 rounded p-2">
-                <div className="font-medium text-gray-700 mb-1">Admin Account:</div>
-                <div>Email: <code className="bg-gray-200 px-1 rounded">admin</code></div>
-                <div>Password: <code className="bg-gray-200 px-1 rounded">admin</code></div>
-              </div>
-              <div className="bg-gray-50 rounded p-2">
-                <div className="font-medium text-gray-700 mb-1">User Account:</div>
-                <div>Email: <code className="bg-gray-200 px-1 rounded">user@example.com</code></div>
-                <div>Password: <code className="bg-gray-200 px-1 rounded">user123</code></div>
-              </div>
-            </div>
-          </div>
+
         </div>
       </div>
     </div>
