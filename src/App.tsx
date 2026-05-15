@@ -1,4 +1,5 @@
-import React from 'react';
+import React, { useEffect } from 'react';
+import { testBackend } from './api';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { Toaster } from 'sonner';
 import { AuthProvider, useAuth } from './context/AuthContext';
@@ -11,8 +12,6 @@ import { Profile } from './pages/Profile';
 import { Login } from './pages/Login';
 import { Signup } from './pages/Signup';
 import AdminDashboard from './pages/AdminDashboard';
-import { SearchPage } from './pages/Search';
-
 
 // Protected Route Components
 const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
@@ -35,34 +34,11 @@ const AppRoutes = () => {
       <Route path="/login" element={<Login />} />
       <Route path="/signup" element={<Signup />} />
 
-      {/* Home */}
-      <Route
-        path="/"
-        element={
-          isAuthenticated ? (
-            <Layout><Home /></Layout>
-          ) : (
-            <Navigate to="/login" />
-          )
-        }
-      />
-
-      {/*  SEARCH ROUTE (THÊM MỚI) */}
-      <Route
-        path="/search"
-        element={
-          <Layout>
-            <SearchPage />
-          </Layout>
-        }
-      />
-
-
-      {/* Restaurant / Tour */}
+      {/* Redirect to login if not authenticated */}
+      <Route path="/" element={isAuthenticated ? <Layout><Home /></Layout> : <Navigate to="/login" />} />
       <Route path="/restaurant/:id" element={<Layout><RestaurantDetail /></Layout>} />
       <Route path="/tour/:id" element={<Layout><TourDetail /></Layout>} />
 
-      {/* Planner */}
       <Route
         path="/planner"
         element={
@@ -71,8 +47,6 @@ const AppRoutes = () => {
           </ProtectedRoute>
         }
       />
-
-      {/* Profile */}
       <Route
         path="/profile"
         element={
@@ -82,7 +56,6 @@ const AppRoutes = () => {
         }
       />
 
-      {/* Admin */}
       <Route
         path="/admin"
         element={
@@ -96,6 +69,16 @@ const AppRoutes = () => {
 };
 
 const App = () => {
+  useEffect(() => {
+    testBackend()
+      .then((data) => {
+        console.log('FE nhận từ BE:', data);
+      })
+      .catch((err) => {
+        console.error('Lỗi gọi BE:', err);
+      });
+  }, []);
+
   return (
     <BrowserRouter>
       <AuthProvider>

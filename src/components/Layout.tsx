@@ -28,11 +28,7 @@ export const Header = () => {
     setShowProfileMenu(false);
     navigate('/login');
   };
-  const avatarUrl =
-    user?.avatar && user.avatar.trim() !== ""
-      ? user.avatar
-      : "https://i.pravatar.cc/150?u=default-user";
-
+  
   return (
     <header className="sticky top-0 z-50 w-full bg-white border-b border-gray-100 shadow-sm">
       <div className="container mx-auto px-4 h-16 flex items-center justify-between">
@@ -46,8 +42,8 @@ export const Header = () => {
 
         {/* Navigation Actions */}
         <div className="flex items-center gap-4">
-          <Link
-            to="/planner"
+          <Link 
+            to="/planner" 
             className="hidden lg:flex items-center gap-2 px-4 py-2 bg-[#FF6B35] text-white rounded-lg font-medium hover:bg-[#e55a2b] transition-colors shadow-sm"
           >
             <MapIcon className="w-4 h-4" />
@@ -56,16 +52,12 @@ export const Header = () => {
 
           {isAuthenticated ? (
             <div className="relative" ref={menuRef}>
-              <button
+              <button 
                 onClick={() => setShowProfileMenu(!showProfileMenu)}
                 className="flex items-center gap-2 hover:opacity-80 transition-opacity"
               >
                 <div className="w-9 h-9 rounded-full bg-gray-200 overflow-hidden border-2 border-white shadow-sm">
-                  <img
-                    src={avatarUrl}
-                    alt="User"
-                    className="w-full h-full object-cover"
-                  />
+                  <img src="https://i.pravatar.cc/150?u=a042581f4e29026024d" alt="User" className="w-full h-full object-cover" />
                 </div>
               </button>
 
@@ -127,17 +119,17 @@ export const Footer = () => {
       <div className="container mx-auto px-4">
         <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
           <div>
-            <div className="flex items-center gap-2 mb-4">
-              <div className="w-6 h-6 bg-[#FF6B35] rounded flex items-center justify-center">
-                <MapPin className="text-white w-3 h-3" />
+             <div className="flex items-center gap-2 mb-4">
+                <div className="w-6 h-6 bg-[#FF6B35] rounded flex items-center justify-center">
+                  <MapPin className="text-white w-3 h-3" />
+                </div>
+                <span className="text-lg font-bold text-slate-800">CityFoodTour</span>
               </div>
-              <span className="text-lg font-bold text-slate-800">CityFoodTour</span>
-            </div>
-            <p className="text-gray-500 text-sm leading-relaxed">
-              Discover the best local food, plan your culinary adventures, and share your tasty journeys with the world.
-            </p>
+              <p className="text-gray-500 text-sm leading-relaxed">
+                Discover the best local food, plan your culinary adventures, and share your tasty journeys with the world.
+              </p>
           </div>
-
+          
           <div>
             <h3 className="font-semibold text-slate-800 mb-4">Discover</h3>
             <ul className="space-y-2 text-sm text-gray-500">
@@ -147,7 +139,7 @@ export const Footer = () => {
             </ul>
           </div>
 
-          <div>
+           <div>
             <h3 className="font-semibold text-slate-800 mb-4">Community</h3>
             <ul className="space-y-2 text-sm text-gray-500">
               <li><a href="#" className="hover:text-[#FF6B35]">Reviews</a></li>
@@ -156,7 +148,7 @@ export const Footer = () => {
             </ul>
           </div>
 
-          <div>
+           <div>
             <h3 className="font-semibold text-slate-800 mb-4">Legal</h3>
             <ul className="space-y-2 text-sm text-gray-500">
               <li><a href="#" className="hover:text-[#FF6B35]">Privacy</a></li>

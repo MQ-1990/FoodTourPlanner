@@ -1,14 +1,12 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Search, MapPin, Soup, Coffee, UtensilsCrossed, Beer, Clock, Star, Navigation, SlidersHorizontal, Fish, Flame, Wallet, } from 'lucide-react';
 import { motion } from 'motion/react';
 import Slider from 'react-slick';
 import { RestaurantCard } from '../components/RestaurantCard';
 import { TourCard } from '../components/TourCard';
-import { MOCK_TOURS } from '../lib/data';
-import { toast } from "sonner";
+import { MOCK_RESTAURANTS, MOCK_TOURS } from '../lib/data';
 
-const API_URL = "http://localhost:5000";
 const SlickStyles = () => (
   <style>{`
     .slick-slider {
@@ -81,23 +79,8 @@ const SlickStyles = () => (
   `}</style>
 );
 
-type Restaurant = {
-  _id?: string;
-  id: number;
-  name: string;
-  image?: string;
-  rating?: number;
-  priceRange?: string;
-  address?: string;
-  district?: string;
-  tags?: string[];
-  openingTime?: string;
-  closingTime?: string;
-};
-
 export const Home = () => {
   const navigate = useNavigate();
-
 
   // state ô search + filter
   const [keyword, setKeyword] = useState('');
@@ -107,47 +90,6 @@ export const Home = () => {
   const [rating, setRating] = useState('');
   const [distance, setDistance] = useState('');
   const [budget, setBudget] = useState('');
-  const [restaurants, setRestaurants] = useState<Restaurant[]>([]);
-  const token = localStorage.getItem("token") || "";
-  const [favoriteIds, setFavoriteIds] = useState<number[]>([]);
-  const [tasteProfile, setTasteProfile] = useState<string>("Any");
-  const handleCuisineClick = (cuisine: string) => {
-    navigate("/search", {
-      state: {
-        keyword: "",
-        filters: {
-          cuisine,
-          location: "",
-          openAt: "",
-          rating: "",
-          distance: "",
-          budget: "",
-        },
-      },
-    });
-  };
-  const sliderRef = useRef<Slider | null>(null);
-  const wheelLockRef = useRef(false);
-  const handleRecommendedWheel = (e: React.WheelEvent<HTMLDivElement>) => {
-    // trackpad có deltaX, chuột thường deltaY -> lấy cái “mạnh” hơn
-    const delta = Math.abs(e.deltaX) > Math.abs(e.deltaY) ? e.deltaX : e.deltaY;
-    if (delta === 0) return;
-
-    // chặn scroll dọc của page khi đang hover vào slider
-    e.preventDefault();
-
-    // throttle để khỏi nhảy liên tục
-    if (wheelLockRef.current) return;
-    wheelLockRef.current = true;
-
-    if (delta > 0) sliderRef.current?.slickNext();
-    else sliderRef.current?.slickPrev();
-
-    window.setTimeout(() => {
-      wheelLockRef.current = false;
-    }, 220); // chỉnh 150-300ms tùy cảm giác
-  };
-
 
   const settings = {
     dots: false,
@@ -167,83 +109,10 @@ export const Home = () => {
     ],
   };
 
-  useEffect(() => {
-    const fetchRestaurants = async () => {
-      try {
-        const res = await fetch(`${API_URL}/api/restaurants`);
-        const data = await res.json();
-        setRestaurants(Array.isArray(data) ? data : []);
-      } catch (err) {
-        console.error("fetch restaurants error:", err);
-        setRestaurants([]);
-      }
-    };
-
-    fetchRestaurants();
-  }, []);
-
-  useEffect(() => {
-    const fetchMe = async () => {
-      if (!token) {
-        setFavoriteIds([]);
-        setTasteProfile("Any");
-        return;
-      }
-
-      try {
-        const res = await fetch(`${API_URL}/api/users/me`, {
-          headers: { Authorization: `Bearer ${token}` },
-        });
-
-        if (!res.ok) {
-          setFavoriteIds([]);
-          setTasteProfile("Any");
-          return;
-        }
-
-        const data = await res.json();
-
-        setFavoriteIds(Array.isArray(data.favorites) ? data.favorites : []);
-
-        setTasteProfile(typeof data.taste_profile === "string" ? data.taste_profile : "Any");
-      } catch {
-        setFavoriteIds([]);
-        setTasteProfile("Any");
-      }
-    };
-
-    fetchMe();
-  }, [token]);
-
-  useEffect(() => {
-    const s: any = sliderRef.current;
-    const listEl: HTMLElement | null = s?.innerSlider?.list || null; // react-slick exposes
-
-    if (!listEl) return;
-
-    const onWheel = (e: WheelEvent) => {
-      const delta = Math.abs(e.deltaX) > Math.abs(e.deltaY) ? e.deltaX : e.deltaY;
-      if (delta === 0) return;
-
-      e.preventDefault();
-
-      if (wheelLockRef.current) return;
-      wheelLockRef.current = true;
-
-      if (delta > 0) sliderRef.current?.slickNext();
-      else sliderRef.current?.slickPrev();
-
-      window.setTimeout(() => (wheelLockRef.current = false), 220);
-    };
-
-    listEl.addEventListener("wheel", onWheel, { passive: false });
-    return () => listEl.removeEventListener("wheel", onWheel);
-  }, []);
-
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
 
-    navigate('/search', {
+    navigate('/planner', {
       state: {
         keyword,
         filters: {
@@ -257,51 +126,6 @@ export const Home = () => {
       },
     });
   };
-
-  const toggleFavorite = async (rid: number) => {
-    if (!token) {
-      toast.error("Please login to save favorites");
-      return;
-    }
-
-    const isFav = favoriteIds.includes(rid);
-
-    // ✅ optimistic UI
-    setFavoriteIds(prev => isFav ? prev.filter(x => x !== rid) : [...prev, rid]);
-
-    try {
-      if (!isFav) {
-        const res = await fetch(`${API_URL}/api/users/me/favorites`, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${token}`,
-          },
-          body: JSON.stringify({ rid }),
-        });
-        if (!res.ok) throw new Error("add fav failed");
-      } else {
-        const res = await fetch(`${API_URL}/api/users/me/favorites/${rid}`, {
-          method: "DELETE",
-          headers: { Authorization: `Bearer ${token}` },
-        });
-        if (!res.ok) throw new Error("remove fav failed");
-      }
-    } catch (e) {
-      // rollback nếu fail
-      setFavoriteIds(prev => isFav ? [...prev, rid] : prev.filter(x => x !== rid));
-      toast.error("Update favorite failed");
-    }
-  };
-
-
-  const recommendedRestaurants = (() => {
-    if (!tasteProfile || tasteProfile === "Any") return restaurants;
-
-    return restaurants.filter((r) => Array.isArray(r.tags) && r.tags.includes(tasteProfile));
-  })();
-
-  const recommendedRestaurantsLimited = recommendedRestaurants.slice(0, 12);
 
   return (
     <div className="min-h-screen pb-20">
@@ -372,16 +196,16 @@ export const Home = () => {
         focus:outline-none focus:ring-1 focus:ring-[#FF6B35]"
                 >
                   <option value="">Anywhere</option>
-                  <option value="1">District 1</option>
-                  <option value="2">District 2</option>
-                  <option value="3">District 3</option>
-                  <option value="4">District 4</option>
-                  <option value="5">District 5</option>
-                  <option value="6">District 6</option>
-                  <option value="7">District 7</option>
-                  <option value="8">District 8</option>
-                  <option value="9">District 9</option>
-                  <option value="10">District 10</option>
+                  <option value="District 1">District 1</option>
+                  <option value="District 2">District 2</option>
+                  <option value="District 3">District 3</option>
+                  <option value="District 4">District 4</option>
+                  <option value="District 5">District 5</option>
+                  <option value="District 6">District 6</option>
+                  <option value="District 7">District 7</option>
+                  <option value="District 8">District 8</option>
+                  <option value="District 9">District 9</option>
+                  <option value="District 10">District 10</option>
                 </select>
               </div>
 
@@ -438,7 +262,7 @@ export const Home = () => {
               </div>
 
               {/* Distance */}
-              {/* <div className="flex flex-col">
+              <div className="flex flex-col">
                 <span className="text-white/90 text-[11px] uppercase tracking-wide drop-shadow flex items-center gap-1">
                   <Navigation className="w-3 h-3" /> Distance
                 </span>
@@ -455,7 +279,7 @@ export const Home = () => {
                   <option value="10">≤ 10 km</option>
                   <option value="20">≤ 20 km</option>
                 </select>
-              </div> */}
+              </div>
 
               {/* Budget */}
               <div className="flex flex-col">
@@ -466,14 +290,14 @@ export const Home = () => {
                   value={budget}
                   onChange={(e) => setBudget(e.target.value)}
                   className="w-[140px] border border-white/60 rounded-lg px-2 py-1.5 text-xs bg-white/90 text-slate-800 
-    focus:outline-none focus:ring-1 focus:ring-[#FF6B35]"
+        focus:outline-none focus:ring-1 focus:ring-[#FF6B35]"
                 >
                   <option value="">Any</option>
-                  <option value="$">$</option>
-                  <option value="$$">$$</option>
-                  <option value="$$$">$$$</option>
-                  <option value="$$$$">$$$$</option>
-                  <option value="$$$$$">$$$$$</option>
+                  <option value="0-50000">{'< 50,000đ'}</option>
+                  <option value="50000-100000">50,000 - 100,000đ</option>
+                  <option value="100000-300000">100,000 - 300,000đ</option>
+                  <option value="300000-500000">300,000 - 500,000đ</option>
+                  <option value="gt-500000">{'> 500,000đ'}</option>
                 </select>
               </div>
             </div>
@@ -538,17 +362,16 @@ export const Home = () => {
               color: "bg-red-100 text-red-600",
             },
           ].map((cat) => (
-            <button
+            <Link
+              to="/planner"
               key={cat.name}
-              type="button"
-              onClick={() => handleCuisineClick(cat.name)}
               className="group flex flex-col items-center gap-3"
             >
               <div
-                className={`w-16 h-16 rounded-2xl ${cat.color}
-      flex items-center justify-center shadow-sm
-      group-hover:shadow-md group-hover:scale-110
-      transition-all duration-300`}
+                className={`w-16 h-16 rounded-2xl ${cat.color} 
+          flex items-center justify-center shadow-sm 
+          group-hover:shadow-md group-hover:scale-110 
+          transition-all duration-300`}
               >
                 <cat.icon className="w-8 h-8" />
               </div>
@@ -556,8 +379,7 @@ export const Home = () => {
               <span className="font-medium text-slate-700 group-hover:text-slate-900">
                 {cat.name}
               </span>
-            </button>
-
+            </Link>
           ))}
         </div>
       </section>
@@ -571,59 +393,20 @@ export const Home = () => {
             <h2 className="text-2xl font-bold text-slate-800">Recommended for You</h2>
             <p className="text-slate-500 text-sm mt-1">Based on your taste profile</p>
           </div>
-          <button
-            type="button"
-            onClick={() => {
-              navigate("/search", {
-                state: {
-                  keyword: "",
-                  filters: {
-                    cuisine: tasteProfile && tasteProfile !== "Any" ? tasteProfile : "",
-                    location: "",
-                    openAt: "",
-                    rating: "",
-                    distance: "",
-                    budget: "",
-                  },
-                },
-              });
-            }}
-            className="text-[#FF6B35] font-medium hover:underline text-sm"
-          >
+          <Link to="/planner" className="text-[#FF6B35] font-medium hover:underline text-sm">
             View all
-          </button>
+          </Link>
         </div>
 
-        <div className="-mx-2" onWheel={handleRecommendedWheel}>
-          <Slider ref={sliderRef} {...settings}>
-            {recommendedRestaurantsLimited.map((restaurant: Restaurant) => {
-              const rid = restaurant.id;
-              const isFav = favoriteIds.includes(rid);
-
-              return (
-                <div key={restaurant._id || rid} className="px-2 h-full py-2">
-                  <div
-                    role="button"
-                    tabIndex={0}
-                    onClick={() => navigate(`/restaurant/${rid}`)}
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter") navigate(`/restaurant/${rid}`);
-                    }}
-                    className="cursor-pointer"
-                  >
-                    <RestaurantCard
-                      restaurant={restaurant as any}
-                      isFavorite={isFav}
-                      onToggleFavorite={(e?: React.MouseEvent) => {
-                        e?.preventDefault();
-                        e?.stopPropagation();
-                        toggleFavorite(rid);
-                      }}
-                    />
-                  </div>
-                </div>
-              );
-            })}
+        <div className="-mx-2">
+          <Slider {...settings}>
+            {MOCK_RESTAURANTS.map((restaurant) => (
+              <div key={restaurant.id} className="px-2 h-full py-2">
+                <Link to={`/restaurant/${restaurant.id}`}>
+                  <RestaurantCard restaurant={restaurant} />
+                </Link>
+              </div>
+            ))}
           </Slider>
         </div>
       </section>
