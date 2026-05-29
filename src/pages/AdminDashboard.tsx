@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect, ChangeEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Users, Store, Star, TrendingUp, Search, Edit, Trash2, Check, X, Plus, BarChart3, LogOut, ChevronDown, User } from 'lucide-react';
-import { restaurants, tours } from '../data/mockData';
+import { MOCK_RESTAURANTS, MOCK_TOURS } from '../lib/data';
 import { useAuth } from '../context/AuthContext';
 
 type MenuItem = {
@@ -52,14 +52,26 @@ export default function AdminDashboard() {
   // Mock admin stats
   const stats = {
     totalUsers: 1247,
-    totalRestaurants: restaurants.length,
+    totalRestaurants: MOCK_RESTAURANTS.length,
     totalReviews: 8542,
-    activeTours: tours.length,
+    activeTours: MOCK_TOURS.length,
     newUsersThisWeek: 124,
     newReviewsThisWeek: 342
   };
 
-  const [restaurantList, setRestaurantList] = useState(restaurants);
+  // Map MOCK_RESTAURANTS to admin-friendly shape
+  const [restaurantList, setRestaurantList] = useState(() =>
+    MOCK_RESTAURANTS.map(r => ({
+      ...r,
+      cuisine: r.tags,
+      district: r.address.split(',').pop()?.trim() || 'N/A',
+      reviews: r.reviewCount,
+      isOpen: r.openNow,
+      openingTime: '',
+      closingTime: '',
+      menu: r.dishes.map(d => ({ name: d.name, price: d.price, image: d.image })),
+    }))
+  );
 
   // Form state for Add Restaurant
   const [newName, setNewName] = useState('');
@@ -196,13 +208,17 @@ export default function AdminDashboard() {
         district: newDistrict || 'Quận 1',
         image: newImageUrl || 'https://via.placeholder.com/150',
         cuisine: ['Vietnamese'],
+        tags: ['Vietnamese'],
         rating: 0,
         reviews: 0,
+        reviewCount: 0,
         isOpen: true,
+        openNow: true,
         openingTime: newOpeningTime,
         closingTime: newClosingTime,
         description: newDescription,
         menu: cleanedMenu,
+        dishes: cleanedMenu,
       };
 
       setRestaurantList((prev) => [newRestaurant, ...prev]);
@@ -400,7 +416,7 @@ export default function AdminDashboard() {
                 <div>
                   <h2 className="text-gray-900 mb-4">Most Popular Restaurants</h2>
                   <div className="space-y-3">
-                    {restaurants.slice(0, 5).map((restaurant, idx) => (
+                    {MOCK_RESTAURANTS.slice(0, 5).map((restaurant, idx) => (
                       <div key={restaurant.id} className="flex items-center gap-4 p-4 bg-gray-50 rounded-lg">
                         <div className="text-2xl text-gray-400 w-8">#{idx + 1}</div>
                         <div className="w-16 h-16 rounded-lg overflow-hidden">
@@ -412,7 +428,7 @@ export default function AdminDashboard() {
                             <Star className="w-4 h-4 text-yellow-500 fill-current" />
                             <span>{restaurant.rating}</span>
                             <span>•</span>
-                            <span>{restaurant.reviews} reviews</span>
+                            <span>{restaurant.reviewCount} reviews</span>
                           </div>
                         </div>
                       </div>
