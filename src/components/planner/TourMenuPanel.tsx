@@ -41,7 +41,7 @@ export const TourMenuPanel = ({
           <div className="text-left">
             <h3 className="font-medium text-gray-900">Current Itinerary</h3>
             <p className="text-sm text-gray-500">
-              {tourStops.length > 0 ? tourStops.length + ' stop' + (tourStops.length !== 1 ? 's' : '') + ' \u2022 Active' : 'Empty'}
+              {tourStops.length > 0 ? tourStops.length + ' stop' + (tourStops.length !== 1 ? 's' : '') + ' • Active' : 'Empty'}
             </p>
           </div>
         </div>
@@ -61,7 +61,7 @@ export const TourMenuPanel = ({
           </div>
           <div className="text-left">
             <h3 className="font-medium text-gray-900">My Tours</h3>
-            <p className="text-sm text-gray-500">Private \u2022 {myTours.length} created</p>
+            <p className="text-sm text-gray-500">Private • {myTours.length} created</p>
           </div>
         </div>
         <ChevronRight className="w-5 h-5 text-gray-400 group-hover:text-gray-600" />
@@ -80,7 +80,7 @@ export const TourMenuPanel = ({
           </div>
           <div className="text-left">
             <h3 className="font-medium text-gray-900">Saved Tours</h3>
-            <p className="text-sm text-gray-500">Public \u2022 {savedTours.length} saved</p>
+            <p className="text-sm text-gray-500">Public • {savedTours.length} saved</p>
           </div>
         </div>
         <ChevronRight className="w-5 h-5 text-gray-400 group-hover:text-gray-600" />
