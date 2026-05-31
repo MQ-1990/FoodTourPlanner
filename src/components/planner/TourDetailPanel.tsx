@@ -66,7 +66,7 @@ export const TourDetailPanel = ({
                   <Star className="w-5 h-5 fill-yellow-500 text-yellow-500" />
                   <span className="font-bold text-gray-900">{selectedTour.rating}</span>
                 </div>
-                <span className="text-gray-400">\u2022</span>
+                <span className="text-gray-400">•</span>
               </>
             )}
             <div className="flex items-center gap-1 text-gray-600">
@@ -154,7 +154,7 @@ export const TourDetailPanel = ({
                         <Star className="w-3.5 h-3.5 fill-current" />
                         <span className="text-gray-900 text-sm">{restaurant.rating}</span>
                       </div>
-                      <span className="text-gray-400 text-xs">\u2022</span>
+                      <span className="text-gray-400 text-xs">•</span>
                       <span className="text-gray-600 text-sm">{restaurant.priceRange}</span>
                     </div>
                     <p className="text-xs text-gray-500 line-clamp-1">{restaurant.address}</p>
