@@ -68,10 +68,10 @@ export const RestaurantDetailPanel = ({
             <span className="font-bold text-gray-900">{selectedRestaurant.rating}</span>
             <span className="text-gray-500">({selectedRestaurant.reviewCount})</span>
           </div>
-          <span className="text-gray-400">\u2022</span>
+          <span className="text-gray-400">•</span>
           <span className="font-medium text-gray-700">{selectedRestaurant.priceRange}</span>
           {selectedRestaurant.openNow && (
-            <><span className="text-gray-400">\u2022</span><span className="font-medium text-green-600">Open now</span></>
+            <><span className="text-gray-400">•</span><span className="font-medium text-green-600">Open now</span></>
           )}
         </div>
         {/* Address */}
