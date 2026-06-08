@@ -1,65 +1,109 @@
-import React from 'react';
-import { MapPin } from 'lucide-react';
+import React, { useEffect } from 'react';
 import { Restaurant } from '../lib/data';
+import { MapContainer, TileLayer, Marker, Popup, Polyline, useMap } from 'react-leaflet';
+import L from 'leaflet';
 
 interface MockMapProps {
   restaurants?: Restaurant[];
   highlightedId?: string;
   className?: string;
-  center?: { x: number, y: number }; // For planner
+  center?: { x: number, y: number }; // For backward compatibility (x=lat, y=lng)
   zoom?: number;
-  path?: { x: number, y: number }[]; // Array of percentages for drawing a line
+  path?: { x: number, y: number }[]; // For backward compatibility
 }
 
-export const MockMap = ({ restaurants = [], highlightedId, className = "", path }: MockMapProps) => {
-  return (
-    <div className={`relative bg-[#E5F0F2] overflow-hidden ${className}`}>
-      {/* Fake map grid/streets */}
-      <div className="absolute inset-0 opacity-30" 
-           style={{ 
-             backgroundImage: 'radial-gradient(#2E86AB 1px, transparent 1px), linear-gradient(#f0f0f0 2px, transparent 2px), linear-gradient(90deg, #f0f0f0 2px, transparent 2px)',
-             backgroundSize: '20px 20px, 100px 100px, 100px 100px' 
-           }} 
-      />
-      
-      {/* Fake River */}
-      <div className="absolute top-0 right-0 w-1/3 h-full bg-[#a3d5e6] opacity-50 transform skew-x-12 translate-x-20" />
+// Component to handle fitting map bounds to the markers
+const MapBoundsFitter = ({ restaurants, center, zoom }: { restaurants: Restaurant[], center?: { x: number, y: number }, zoom?: number }) => {
+  const map = useMap();
+  useEffect(() => {
+    if (restaurants.length > 1) {
+      const bounds = L.latLngBounds(restaurants.map(s => [s.lat, s.lng]));
+      map.fitBounds(bounds, { padding: [30, 30], animate: true });
+    } else if (restaurants.length === 1) {
+      map.setView([restaurants[0].lat, restaurants[0].lng], zoom || 15);
+    } else if (center) {
+      map.setView([center.x, center.y], zoom || 13);
+    }
+  }, [restaurants, center, zoom, map]);
+  return null;
+};
 
-      {/* Drawn Path for Planner */}
-      {path && path.length > 1 && (
-        <svg className="absolute inset-0 w-full h-full pointer-events-none z-10">
-          <polyline 
-            points={path.map(p => `${p.x}%,${p.y}%`).join(' ')}
-            fill="none"
-            stroke="#FF6B35"
-            strokeWidth="4"
-            strokeDasharray="8 4"
-            strokeLinecap="round"
-            className="animate-pulse"
-          />
-        </svg>
-      )}
-
-      {/* Pins */}
-      {restaurants.map((r) => (
-        <div 
-          key={r.id}
-          className={`absolute transform -translate-x-1/2 -translate-y-full transition-all duration-300 cursor-pointer z-20`}
-          style={{ left: `${r.lat}%`, top: `${r.lng}%` }}
-        >
-           <div className={`relative flex flex-col items-center ${highlightedId === r.id ? 'scale-125 z-50' : 'hover:scale-110 z-20'}`}>
-              <div className={`px-2 py-1 rounded shadow-md text-xs font-bold whitespace-nowrap mb-1 ${highlightedId === r.id ? 'bg-[#FF6B35] text-white' : 'bg-white text-slate-800'}`}>
-                {r.priceRange}
-              </div>
-              <MapPin className={`w-8 h-8 drop-shadow-lg ${highlightedId === r.id ? 'text-[#FF6B35] fill-[#FF6B35]' : 'text-[#2E86AB] fill-white'}`} />
-           </div>
+export const MockMap = ({ restaurants = [], highlightedId, className = "", path, center, zoom }: MockMapProps) => {
+  
+  const createMarkerIcon = (restaurant: Restaurant, isHighlighted: boolean) => {
+    const bgColor = isHighlighted ? 'bg-[#FF6B35]' : 'bg-[#2E86AB]';
+    const highlightClasses = isHighlighted ? 'ring-4 ring-yellow-400 animate-pulse scale-125 z-50' : 'z-10';
+    
+    return L.divIcon({
+      className: 'bg-transparent border-none', 
+      html: `
+        <div class="relative flex flex-col items-center">
+          <div class="px-2 py-1 rounded shadow-md text-xs font-bold whitespace-nowrap mb-1 bg-white text-slate-800 absolute -top-8">
+            ${restaurant.priceRange}
+          </div>
+          <div class="w-6 h-6 rounded-full flex items-center justify-center shadow-lg transition-transform duration-300 ${bgColor} ${highlightClasses}">
+             <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg>
+          </div>
         </div>
-      ))}
+      `,
+      iconSize: [24, 24],
+      iconAnchor: [12, 12],
+    });
+  };
 
-      {/* You are here marker (fake) */}
-      <div className="absolute bottom-8 right-8 bg-white p-2 rounded-full shadow-lg cursor-pointer hover:bg-gray-50">
-         <div className="w-4 h-4 bg-blue-500 rounded-full border-2 border-white ring-2 ring-blue-200" />
-      </div>
+  // Default to HCMC
+  const defaultCenter: [number, number] = center ? [center.x, center.y] : (restaurants.length > 0 ? [restaurants[0].lat, restaurants[0].lng] : [10.7769, 106.7009]);
+
+  return (
+    <div className={`relative bg-gray-100 overflow-hidden z-0 ${className}`}>
+      <MapContainer 
+        center={defaultCenter} 
+        zoom={zoom || 14} 
+        style={{ width: '100%', height: '100%' }}
+        zoomControl={false}
+      >
+        <TileLayer
+          url="https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png"
+          attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+        />
+
+        <MapBoundsFitter restaurants={restaurants} center={center} zoom={zoom} />
+
+        {/* Drawn Path for Planner backward compat */}
+        {path && path.length > 1 && (
+          <Polyline
+            positions={path.map((p) => [p.x, p.y])}
+            color="#FF6B35"
+            weight={4}
+            dashArray="8, 4"
+            lineCap="round"
+          />
+        )}
+        
+        {/* Or if we just use restaurants array for path */}
+        {!path && restaurants.length > 1 && (
+          <Polyline
+            positions={restaurants.map((s) => [s.lat, s.lng])}
+            color="#FF6B35"
+            weight={4}
+            dashArray="8, 4"
+            lineCap="round"
+          />
+        )}
+
+        {/* Pins */}
+        {restaurants.map((r) => (
+          <Marker
+            key={r.id}
+            position={[r.lat, r.lng]}
+            icon={createMarkerIcon(r, highlightedId === r.id)}
+          >
+            <Popup>
+              <strong>{r.name}</strong><br/>{r.address}
+            </Popup>
+          </Marker>
+        ))}
+      </MapContainer>
     </div>
   );
 };
