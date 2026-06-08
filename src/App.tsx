@@ -3,6 +3,7 @@ import { testBackend } from './api';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { Toaster } from 'sonner';
 import { AuthProvider, useAuth } from './context/AuthContext';
+import { RestaurantProvider } from './context/RestaurantContext';
 import { Layout } from './components/Layout';
 import { Home } from './pages/Home';
 import { RestaurantDetail } from './pages/RestaurantDetail';
@@ -82,8 +83,10 @@ const App = () => {
   return (
     <BrowserRouter>
       <AuthProvider>
-        <AppRoutes />
-        <Toaster position="top-right" richColors />
+        <RestaurantProvider>
+          <AppRoutes />
+          <Toaster position="top-right" richColors />
+        </RestaurantProvider>
       </AuthProvider>
     </BrowserRouter>
   );
