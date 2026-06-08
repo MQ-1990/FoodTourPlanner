@@ -2,7 +2,7 @@ import React from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { Clock, MapPin, Star, User, Calendar, Play, Edit, Bookmark, Share2 } from 'lucide-react';
 import { tours } from '../data/mockData';
-import { MOCK_RESTAURANTS } from '../lib/data';
+import { useRestaurants } from '../context/RestaurantContext';
 import { MockMap } from '../components/MockMap';
 
 export const TourDetail = () => {
@@ -21,8 +21,9 @@ export const TourDetail = () => {
     );
   }
 
-  // Mock tour data - use first restaurants as tour stops
-  const tourStops = MOCK_RESTAURANTS.slice(0, tour.stops);
+  // Use restaurants from API
+  const { restaurants } = useRestaurants();
+  const tourStops = restaurants.slice(0, tour.stops);
   
   const creator = {
     name: "Alex Nguyen",
