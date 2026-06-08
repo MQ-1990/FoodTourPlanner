@@ -16,6 +16,7 @@ import {
   MOCK_TOURS,
 } from "../lib/data";
 import { useRestaurants } from "../context/RestaurantContext";
+import { useAuth } from "../context/AuthContext";
 import { toast } from "sonner";
 import {
   DraggableStop,
@@ -38,6 +39,7 @@ import {
 export const Planner = () => {
   const location = useLocation();
   const { restaurants: allRestaurants, isLoading: isLoadingRestaurants } = useRestaurants();
+  const { user } = useAuth();
 
   // Tour state
   const [tourStops, setTourStops] = useState<Restaurant[]>([]);
@@ -52,6 +54,7 @@ export const Planner = () => {
   const [showItinerary, setShowItinerary] = useState(false);
   const [showMiniItinerary, setShowMiniItinerary] =
     useState(false);
+  const [hasLoadedItineraryDraft, setHasLoadedItineraryDraft] = useState(false);
 
   // Tour Menu state
   const [showTourMenu, setShowTourMenu] = useState(false);
@@ -184,6 +187,59 @@ export const Planner = () => {
     );
     setMyTours(storedTours);
   }, []);
+
+  const itineraryDraftKey = `currentItineraryDraft:${user?.id || "guest"}`;
+
+  useEffect(() => {
+    if (isLoadingRestaurants || hasLoadedItineraryDraft) return;
+
+    const rawDraft = localStorage.getItem(itineraryDraftKey);
+    if (!rawDraft) {
+      setHasLoadedItineraryDraft(true);
+      return;
+    }
+
+    try {
+      const draft = JSON.parse(rawDraft);
+      const stopIds: string[] = Array.isArray(draft.stopIds) ? draft.stopIds.map(String) : [];
+      const restoredStops = stopIds
+        .map((id) => allRestaurants.find((restaurant) => String(restaurant.id) === id))
+        .filter(Boolean) as Restaurant[];
+
+      if (restoredStops.length > 0) {
+        setTourStops(restoredStops);
+        setTourName(draft.name || "My Food Tour");
+        setTempName(draft.name || "My Food Tour");
+        setTourDescription(draft.description || "");
+        setTourTags(Array.isArray(draft.tags) ? draft.tags : []);
+      }
+    } catch (err) {
+      console.error("Failed to restore itinerary draft:", err);
+      localStorage.removeItem(itineraryDraftKey);
+    } finally {
+      setHasLoadedItineraryDraft(true);
+    }
+  }, [allRestaurants, hasLoadedItineraryDraft, isLoadingRestaurants, itineraryDraftKey]);
+
+  useEffect(() => {
+    if (!hasLoadedItineraryDraft) return;
+
+    if (tourStops.length === 0 && tourName === "My Food Tour" && !tourDescription && tourTags.length === 0) {
+      localStorage.removeItem(itineraryDraftKey);
+      return;
+    }
+
+    localStorage.setItem(
+      itineraryDraftKey,
+      JSON.stringify({
+        name: tourName,
+        description: tourDescription,
+        tags: tourTags,
+        stopIds: tourStops.map((stop) => String(stop.id)),
+        updatedAt: new Date().toISOString(),
+      }),
+    );
+  }, [hasLoadedItineraryDraft, itineraryDraftKey, tourDescription, tourName, tourStops, tourTags]);
 
   // Track previous view for back navigation
   const [previousView, setPreviousView] = useState<
@@ -778,6 +834,85 @@ export const Planner = () => {
     setShowItinerary(false);
   };
 
+  const showSearchMenuPanel = () => {
+    setShowSearchMenu(true);
+    setShowRestaurantSearch(false);
+    setShowTourSearch(false);
+    setShowDishSearch(false);
+    setShowSaved(false);
+    setShowTourMenu(false);
+    setShowMyTours(false);
+    setShowItinerary(false);
+    setShowMiniItinerary(false);
+    setSelectedRestaurant(null);
+    setSelectedTour(null);
+    setSelectedDish(null);
+    setSavedCategory(null);
+  };
+
+  const showTourMenuPanel = () => {
+    setShowTourMenu(true);
+    setShowSearchMenu(false);
+    setShowRestaurantSearch(false);
+    setShowTourSearch(false);
+    setShowDishSearch(false);
+    setShowSaved(false);
+    setShowMyTours(false);
+    setShowItinerary(false);
+    setShowMiniItinerary(false);
+    setSelectedRestaurant(null);
+    setSelectedTour(null);
+    setSelectedDish(null);
+    setSavedCategory(null);
+  };
+
+  const showRestaurantSearchPanel = () => {
+    setShowRestaurantSearch(true);
+    setShowSearchMenu(false);
+    setShowTourSearch(false);
+    setShowDishSearch(false);
+    setShowSaved(false);
+    setShowTourMenu(false);
+    setShowMyTours(false);
+    setShowItinerary(false);
+    setShowMiniItinerary(false);
+    setSelectedRestaurant(null);
+    setSelectedTour(null);
+    setSelectedDish(null);
+    setSavedCategory(null);
+  };
+
+  const showFullItineraryPanel = () => {
+    setShowItinerary(true);
+    setShowMiniItinerary(false);
+    setShowTourMenu(false);
+    setShowSaved(false);
+    setShowMyTours(false);
+    setShowSearchMenu(false);
+    setShowRestaurantSearch(false);
+    setShowTourSearch(false);
+    setShowDishSearch(false);
+    setSelectedRestaurant(null);
+    setSelectedTour(null);
+    setSelectedDish(null);
+    setSavedCategory(null);
+  };
+
+  const showMiniItineraryPanel = () => {
+    setShowMiniItinerary(true);
+    setShowItinerary(false);
+    setShowSaved(false);
+    setShowTourMenu(false);
+    setShowMyTours(false);
+    setShowSearchMenu(false);
+    setShowRestaurantSearch(false);
+    setShowTourSearch(false);
+    setShowDishSearch(false);
+    setSelectedRestaurant(null);
+    setSelectedTour(null);
+    setSelectedDish(null);
+  };
+
   const handleBackToResults = () => {
     // Go back to the previous view
     setSelectedRestaurant(null);
@@ -826,9 +961,7 @@ export const Planner = () => {
       setSavedCategory(null);
       setSelectedTour(null);
     } else if (previousView === "current-itinerary") {
-      setShowItinerary(true);
-      setShowTourMenu(false);
-      setSelectedTour(null);
+      showFullItineraryPanel();
     } else if (previousView === "dish-search") {
       setShowDishSearch(true);
       setSelectedDish(null);
@@ -849,26 +982,19 @@ export const Planner = () => {
   const handleToggleItinerary = () => {
     if (showMiniItinerary) {
       // Closing itinerary
-      setShowMiniItinerary(false);
       if (previousRestaurant) {
+        setShowMiniItinerary(false);
         setSelectedRestaurant(previousRestaurant);
         setPreviousRestaurant(null);
+      } else {
+        showRestaurantSearchPanel();
       }
     } else {
       // Opening mini itinerary
       if (selectedRestaurant) {
         setPreviousRestaurant(selectedRestaurant);
       }
-      setShowMiniItinerary(true);
-      setShowItinerary(false);
-      setSelectedRestaurant(null);
-      setShowSaved(false);
-      setShowTourMenu(false);
-      setSelectedTour(null);
-      setShowMyTours(false);
-      setShowSearchMenu(false);
-      setShowRestaurantSearch(false);
-      setShowTourSearch(false);
+      showMiniItineraryPanel();
     }
   };
 
@@ -1076,8 +1202,9 @@ export const Planner = () => {
                 ) : showMiniItinerary ? (
                   <MiniItineraryPanel
                     tourStops={tourStops}
-                    setShowMiniItinerary={setShowMiniItinerary}
-                    setShowItinerary={setShowItinerary}
+                    onBack={handleToggleItinerary}
+                    onFindRestaurants={showRestaurantSearchPanel}
+                    onOpenFullItinerary={showFullItineraryPanel}
                   />
                 ) : showItinerary ? (
                   <ItineraryPanel
@@ -1106,6 +1233,8 @@ export const Planner = () => {
                     setShowMyTours={setShowMyTours}
                     setSelectedTour={setSelectedTour}
                     setSelectedRestaurant={setSelectedRestaurant}
+                    onBack={showTourMenuPanel}
+                    onFindRestaurants={showRestaurantSearchPanel}
                   />
                 ) : (
                   <div className="flex flex-col items-center justify-center h-full text-gray-500 p-8" />
