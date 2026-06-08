@@ -3,16 +3,17 @@ import { Restaurant } from '../../lib/data';
 
 interface MiniItineraryPanelProps {
   tourStops: Restaurant[];
-  setShowMiniItinerary: (v: boolean) => void;
-  setShowItinerary: (v: boolean) => void;
+  onBack: () => void;
+  onFindRestaurants: () => void;
+  onOpenFullItinerary: () => void;
 }
 
 export const MiniItineraryPanel = ({
-  tourStops, setShowMiniItinerary, setShowItinerary,
+  tourStops, onBack, onFindRestaurants, onOpenFullItinerary,
 }: MiniItineraryPanelProps) => (
   <div className="p-4">
     <button
-      onClick={() => setShowMiniItinerary(false)}
+      onClick={onBack}
       className="flex items-center gap-2 text-gray-600 hover:text-gray-900 mb-4"
     >
       <ChevronLeft className="w-5 h-5" /><span>Back</span>
@@ -26,7 +27,7 @@ export const MiniItineraryPanel = ({
       <div className="text-center py-8 text-gray-500">
         <p>Your itinerary is empty.</p>
         <button
-          onClick={() => setShowMiniItinerary(false)}
+          onClick={onFindRestaurants}
           className="mt-4 text-[#FF6B35] font-medium hover:underline"
         >Add restaurants</button>
       </div>
@@ -45,7 +46,7 @@ export const MiniItineraryPanel = ({
       </div>
     )}
     <button
-      onClick={() => { setShowMiniItinerary(false); setShowItinerary(true); }}
+      onClick={onOpenFullItinerary}
       className="w-full bg-[#2E86AB] text-white px-4 py-3 rounded-lg font-medium hover:bg-[#236B8A] transition-colors flex items-center justify-center gap-2"
     >
       <MapPin className="w-4 h-4" /> Go to Full Itinerary
