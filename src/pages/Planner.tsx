@@ -12,10 +12,10 @@ import {
 } from "lucide-react";
 import { Link, useLocation } from "react-router-dom";
 import {
-  MOCK_RESTAURANTS,
   type Restaurant,
   MOCK_TOURS,
 } from "../lib/data";
+import { useRestaurants } from "../context/RestaurantContext";
 import { toast } from "sonner";
 import {
   DraggableStop,
@@ -37,6 +37,7 @@ import {
 
 export const Planner = () => {
   const location = useLocation();
+  const { restaurants: allRestaurants, isLoading: isLoadingRestaurants } = useRestaurants();
 
   // Tour state
   const [tourStops, setTourStops] = useState<Restaurant[]>([]);
@@ -153,12 +154,19 @@ export const Planner = () => {
     null,
   );
 
-  // Initialize favorites with all MOCK_RESTAURANTS (same as Profile page)
+  // Initialize favorites with all restaurants from API
   const [favoriteRestaurants, setFavoriteRestaurants] =
-    useState<Restaurant[]>(MOCK_RESTAURANTS);
+    useState<Restaurant[]>([]);
   // Initialize saved tours with all MOCK_TOURS (same as Profile page)
   const [savedTours, setSavedTours] =
     useState<any[]>(MOCK_TOURS);
+
+  // Sync favorites when restaurants load from API
+  useEffect(() => {
+    if (allRestaurants.length > 0) {
+      setFavoriteRestaurants(allRestaurants);
+    }
+  }, [allRestaurants]);
 
   // Track which saved category is being viewed: null | 'favorites' | 'tours'
   const [savedCategory, setSavedCategory] = useState<
@@ -231,17 +239,18 @@ export const Planner = () => {
       tourRestaurants = tour.stops;
     } else if (tour.id === "t1") {
       // Street Food Adventure - first 5 restaurants
-      tourRestaurants = MOCK_RESTAURANTS.slice(0, 5);
+      tourRestaurants = allRestaurants.slice(0, 5);
     } else if (tour.id === "t2") {
       // Hidden Coffee Gems - 3 coffee-related restaurants
-      tourRestaurants = MOCK_RESTAURANTS.filter(
+      tourRestaurants = allRestaurants.filter(
         (r) =>
           r.tags.includes("Coffee") ||
+          r.tags.includes("Drinks") ||
           r.name.toLowerCase().includes("coffee"),
       ).slice(0, 3);
     } else if (tour.id === "t3") {
       // Vegetarian Delights - 4 different restaurants
-      tourRestaurants = MOCK_RESTAURANTS.slice(2, 6);
+      tourRestaurants = allRestaurants.slice(2, 6);
     }
 
     setTourStops(tourRestaurants);
@@ -266,15 +275,16 @@ export const Planner = () => {
       return tour.stops;
     }
     if (tour.id === "t1") {
-      return MOCK_RESTAURANTS.slice(0, 5);
+      return allRestaurants.slice(0, 5);
     } else if (tour.id === "t2") {
-      return MOCK_RESTAURANTS.filter(
+      return allRestaurants.filter(
         (r) =>
           r.tags.includes("Coffee") ||
+          r.tags.includes("Drinks") ||
           r.name.toLowerCase().includes("coffee"),
       ).slice(0, 3);
     } else if (tour.id === "t3") {
-      return MOCK_RESTAURANTS.slice(2, 6);
+      return allRestaurants.slice(2, 6);
     }
     return [];
   };
@@ -321,7 +331,7 @@ export const Planner = () => {
   };
 
   // --- 1. FILTER RESTAURANTS LOGIC ---
-  const filteredRestaurants = MOCK_RESTAURANTS.filter((r) => {
+  const filteredRestaurants = allRestaurants.filter((r) => {
     // District
     if (
       selectedDistrict &&
@@ -445,7 +455,7 @@ export const Planner = () => {
     const { min: budgetMin, max: budgetMax } =
       getBudgetRange(dishBudget);
 
-    MOCK_RESTAURANTS.forEach((repo) => {
+    allRestaurants.forEach((repo) => {
       // -- Filter Parent Restaurant First --
       // (Keeps checking Restaurant tags for the "Available at" search logic)
       if (dishLocation && !repo.address.includes(dishLocation))
@@ -968,7 +978,13 @@ export const Planner = () => {
                   setSelectedPrice={setSelectedPrice}
                   minRating={minRating}
                   setMinRating={setMinRating}
-                  clearFilters={clearFilters}
+                  selectedDistrict={selectedDistrict}
+              setSelectedDistrict={setSelectedDistrict}
+              selectedCuisine={selectedCuisine}
+              setSelectedCuisine={setSelectedCuisine}
+              onlyOpen={onlyOpen}
+              setOnlyOpen={setOnlyOpen}
+              clearFilters={clearFilters}
                   filteredRestaurants={filteredRestaurants}
                   tourStops={tourStops}
                   showItinerary={showItinerary}
@@ -1107,6 +1123,7 @@ export const Planner = () => {
           selectedTour={selectedTour}
           tourName={tourName}
           handleMapDotClick={handleMapDotClick}
+          toggleRestaurantSelection={toggleRestaurantSelection}
           getTourRestaurants={getTourRestaurants}
         />
       </div>
