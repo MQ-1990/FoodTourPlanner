@@ -86,6 +86,8 @@ export default function AdminDashboard() {
   const [newDistrict, setNewDistrict] = useState('');
   const [newAmenities, setNewAmenities] = useState(''); // comma-separated
   const [editingRestaurant, setEditingRestaurant] = useState<any | null>(null);
+  const [showRestaurantImageOptions, setShowRestaurantImageOptions] = useState(false);
+  const [activeDishImageOptions, setActiveDishImageOptions] = useState<number | null>(null);
 
   const [menuItems, setMenuItems] = useState<MenuItem[]>([
     { name: '', price: '', image: '' },
@@ -104,6 +106,8 @@ export default function AdminDashboard() {
     setNewDistrict('');
     setNewAmenities('');
     setMenuItems([{ name: '', price: '', image: '' }]);
+    setShowRestaurantImageOptions(false);
+    setActiveDishImageOptions(null);
 
     setShowAddDialog(true);
   };
@@ -132,12 +136,14 @@ export default function AdminDashboard() {
     );
 
     setShowAddDialog(true);
+    setShowRestaurantImageOptions(false);
+    setActiveDishImageOptions(null);
   };
 
 
   const handleMenuItemChange = (
     index: number,
-    field: 'name' | 'price',
+    field: 'name' | 'price' | 'image',
     value: string
   ) => {
     setMenuItems((prev) => {
@@ -215,6 +221,8 @@ export default function AdminDashboard() {
     setNewDistrict('');
     setNewAmenities('');
     setMenuItems([{ name: '', price: '' }]);
+    setShowRestaurantImageOptions(false);
+    setActiveDishImageOptions(null);
   };
 
   const handleSaveRestaurant = async () => {
@@ -680,29 +688,46 @@ export default function AdminDashboard() {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-3">
                 <div>
                   <label className="block text-gray-700 mb-1 text-sm">Restaurant Image</label>
-                  <div className="flex items-center gap-3">
-                    <div className="w-16 h-16 rounded-lg overflow-hidden bg-gray-100 flex items-center justify-center">
+                  <div className="relative inline-block">
+                    <button
+                      type="button"
+                      onClick={() => setShowRestaurantImageOptions((value) => !value)}
+                      className="w-16 h-16 rounded-lg overflow-hidden bg-gray-100 flex items-center justify-center border hover:ring-2 hover:ring-[#FF6B35] transition"
+                    >
                       {newImageUrl ? (
                         <img src={newImageUrl} alt="Preview" className="w-full h-full object-cover" />
                       ) : (
                         <span className="text-[10px] text-gray-400 text-center px-2">No image</span>
                       )}
-                    </div>
-                    <div>
+                    </button>
+
+                    {showRestaurantImageOptions && (
+                      <div className="absolute left-20 top-0 z-20 w-72 rounded-lg border border-gray-200 bg-white p-3 shadow-lg">
                       <label
                         htmlFor="restaurantImage"
-                        className="inline-flex items-center justify-center px-3 py-1.5 border border-gray-300 rounded-lg text-xs text-gray-700 cursor-pointer hover:bg-gray-50 whitespace-nowrap"
+                          className="inline-flex w-full items-center justify-center px-3 py-2 border border-gray-300 rounded-lg text-xs text-gray-700 cursor-pointer hover:bg-gray-50"
                       >
-                        Choose image
+                          Upload image
                       </label>
                       <input
                         id="restaurantImage"
                         type="file"
                         accept="image/*"
                         className="hidden"
-                        onChange={handleImageChange}
+                          onChange={(e) => {
+                            handleImageChange(e);
+                            setShowRestaurantImageOptions(false);
+                          }}
                       />
-                    </div>
+                        <input
+                          type="url"
+                          className="mt-2 w-full px-3 py-2 border border-gray-300 rounded-lg outline-none focus:ring-2 focus:ring-[#FF6B35] text-sm"
+                          placeholder="Paste image URL"
+                          value={newImageUrl}
+                          onChange={(e) => setNewImageUrl(e.target.value)}
+                        />
+                      </div>
+                    )}
                   </div>
                 </div>
 
@@ -775,8 +800,12 @@ export default function AdminDashboard() {
                       className="flex flex-col md:flex-row items-center gap-3 p-3 border border-gray-200 rounded-lg"
                     >
                       {/* Image + button */}
-                      <div className="flex items-center gap-3 w-full md:w-auto">
-                        <div className="w-16 h-16 rounded-lg overflow-hidden bg-gray-100 flex items-center justify-center border shrink-0">
+                      <div className="relative w-full md:w-auto">
+                        <button
+                          type="button"
+                          onClick={() => setActiveDishImageOptions(activeDishImageOptions === index ? null : index)}
+                          className="w-16 h-16 rounded-lg overflow-hidden bg-gray-100 flex items-center justify-center border shrink-0 hover:ring-2 hover:ring-[#FF6B35] transition"
+                        >
                           {item.image ? (
                             <img
                               src={item.image}
@@ -788,23 +817,37 @@ export default function AdminDashboard() {
                               No image
                             </span>
                           )}
-                        </div>
+                        </button>
 
-                        <div>
+                        {activeDishImageOptions === index && (
+                          <div className="absolute left-20 top-0 z-20 w-72 rounded-lg border border-gray-200 bg-white p-3 shadow-lg">
                           <label
                             htmlFor={`dishImage-${index}`}
-                            className="inline-flex items-center justify-center px-3 py-1.5 border border-gray-300 rounded-lg text-xs text-gray-700 cursor-pointer hover:bg-gray-50 whitespace-nowrap"
+                              className="inline-flex w-full items-center justify-center px-3 py-2 border border-gray-300 rounded-lg text-xs text-gray-700 cursor-pointer hover:bg-gray-50"
                           >
-                            Choose image
+                              Upload image
                           </label>
                           <input
                             id={`dishImage-${index}`}
                             type="file"
                             accept="image/*"
                             className="hidden"
-                            onChange={(e) => handleMenuItemImageChange(index, e)}
+                              onChange={(e) => {
+                                handleMenuItemImageChange(index, e);
+                                setActiveDishImageOptions(null);
+                              }}
                           />
-                        </div>
+                            <input
+                              type="url"
+                              placeholder="Paste image URL"
+                              value={item.image || ''}
+                              onChange={(e) =>
+                                handleMenuItemChange(index, 'image', e.target.value)
+                              }
+                              className="mt-2 w-full px-3 py-2 border border-gray-300 rounded-lg outline-none focus:ring-2 focus:ring-[#FF6B35] text-sm"
+                            />
+                          </div>
+                        )}
                       </div>
 
                       {/* Dish name */}
