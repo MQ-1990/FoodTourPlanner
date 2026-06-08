@@ -1,6 +1,7 @@
-import { ChevronLeft, Star, MapPin } from 'lucide-react';
+import { ChevronLeft, Star, MapPin, Clock } from 'lucide-react';
 import { Link } from 'react-router-dom';
-import { Restaurant, MOCK_RESTAURANTS } from '../../lib/data';
+import { Restaurant } from '../../lib/data';
+import { useRestaurants } from '../../context/RestaurantContext';
 
 interface RestaurantDetailPanelProps {
   selectedRestaurant: Restaurant;
@@ -19,13 +20,14 @@ export const RestaurantDetailPanel = ({
   setPreviousRestaurant, setPreviousView,
   setSelectedRestaurant, setSelectedDish,
 }: RestaurantDetailPanelProps) => {
+  const { restaurants: allRestaurants } = useRestaurants();
   const isInTour = tourStops.find((s) => s.id === selectedRestaurant.id);
 
   const handleDishClick = (dish: any) => {
     const dishName = dish.name.trim();
     const rawPrice = parseInt(dish.price.replace(/,/g, ''), 10) || 0;
     const aggregated: any = { name: dishName, image: dish.image, description: 'A popular choice among locals.', minPrice: rawPrice, maxPrice: rawPrice, restaurants: [], tags: new Set() };
-    MOCK_RESTAURANTS.forEach((repo) => {
+    allRestaurants.forEach((repo) => {
       const found = repo.dishes.find((d) => d.name.trim() === dishName);
       if (found) {
         const p = parseInt(found.price.replace(/,/g, ''), 10) || 0;
@@ -79,6 +81,13 @@ export const RestaurantDetailPanel = ({
           <MapPin className="w-5 h-5 flex-shrink-0 mt-0.5" />
           <span>{selectedRestaurant.address}</span>
         </div>
+        {/* Opening Hours */}
+        {selectedRestaurant.openingTime && selectedRestaurant.closingTime && (
+          <div className="flex items-start gap-2 text-gray-600 mt-1">
+            <Clock className="w-5 h-5 flex-shrink-0 mt-0.5" />
+            <span>{selectedRestaurant.openingTime} - {selectedRestaurant.closingTime}</span>
+          </div>
+        )}
         {/* Tags */}
         <div className="flex flex-wrap gap-2">
           {selectedRestaurant.tags.map((tag, idx) => (
@@ -122,7 +131,7 @@ export const RestaurantDetailPanel = ({
                   <div className="flex-1 min-w-0">
                     <h4 className="font-medium text-gray-900 text-sm truncate group-hover:text-[#FF6B35] transition-colors">{dish.name}</h4>
                     <div className="flex items-center gap-2">
-                      <span className="text-emerald-600 text-xs font-bold">{dish.price} \u20ab</span>
+                      <span className="text-emerald-600 text-xs font-bold">{dish.price} VNĐ</span>
                       {dish.isSignature && (
                         <span className="px-1.5 py-0.5 bg-amber-100 text-amber-700 text-[10px] font-bold rounded">Signature</span>
                       )}
