@@ -11,6 +11,12 @@ interface RestaurantSearchPanelProps {
   setSelectedPrice: React.Dispatch<React.SetStateAction<string>>;
   minRating: number;
   setMinRating: React.Dispatch<React.SetStateAction<number>>;
+  selectedDistrict: string;
+  setSelectedDistrict: React.Dispatch<React.SetStateAction<string>>;
+  selectedCuisine: string;
+  setSelectedCuisine: React.Dispatch<React.SetStateAction<string>>;
+  onlyOpen: boolean;
+  setOnlyOpen: React.Dispatch<React.SetStateAction<boolean>>;
   clearFilters: () => void;
   filteredRestaurants: Restaurant[];
   tourStops: Restaurant[];
@@ -27,6 +33,9 @@ export const RestaurantSearchPanel = ({
   showFilters, setShowFilters,
   selectedPrice, setSelectedPrice,
   minRating, setMinRating,
+  selectedDistrict, setSelectedDistrict,
+  selectedCuisine, setSelectedCuisine,
+  onlyOpen, setOnlyOpen,
   clearFilters, filteredRestaurants,
   tourStops, showItinerary, handleToggleItinerary,
   handleRestaurantClick, toggleRestaurantSelection,
@@ -89,6 +98,34 @@ export const RestaurantSearchPanel = ({
           <div className="absolute top-full left-0 right-0 z-50 bg-white shadow-xl border-b border-gray-200 animate-in slide-in-from-top-2">
             <div className="p-4 space-y-4 max-h-[60vh] overflow-y-auto">
               <div>
+                <label className="block text-sm text-gray-700 mb-2">District</label>
+                <select
+                  value={selectedDistrict}
+                  onChange={(e) => setSelectedDistrict(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg outline-none focus:ring-2 focus:ring-[#FF6B35]"
+                >
+                  <option value="">All</option>
+                  {["District 1", "District 2", "District 3", "District 4"].map(d => (
+                    <option key={d} value={d}>{d}</option>
+                  ))}
+                </select>
+              </div>
+              
+              <div>
+                <label className="block text-sm text-gray-700 mb-2">Cuisine Type</label>
+                <select
+                  value={selectedCuisine}
+                  onChange={(e) => setSelectedCuisine(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg outline-none focus:ring-2 focus:ring-[#FF6B35]"
+                >
+                  <option value="">All</option>
+                  {["Vietnamese", "Phở", "Bánh Mì", "Coffee", "Seafood", "Fusion"].map(c => (
+                    <option key={c} value={c}>{c}</option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
                 <label className="block text-sm text-gray-700 mb-2">Price</label>
                 <div className="flex gap-2">
                   {PRICE_RANGES.map((p) => (
@@ -117,6 +154,16 @@ export const RestaurantSearchPanel = ({
                   className="w-full accent-[#FF6B35]"
                 />
               </div>
+              
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={onlyOpen}
+                  onChange={(e) => setOnlyOpen(e.target.checked)}
+                  className="w-4 h-4 accent-[#FF6B35]"
+                />
+                <span className="text-sm text-gray-700">Only show open restaurants</span>
+              </label>
               <button
                 onClick={clearFilters}
                 className="w-full px-4 py-2 text-gray-600 hover:text-gray-900 text-sm border-t border-gray-200 pt-3"
