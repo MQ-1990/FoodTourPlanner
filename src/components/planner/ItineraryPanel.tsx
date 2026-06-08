@@ -28,6 +28,8 @@ interface ItineraryPanelProps {
   setShowMyTours: (v: boolean) => void;
   setSelectedTour: (t: any) => void;
   setSelectedRestaurant: (r: Restaurant | null) => void;
+  onBack: () => void;
+  onFindRestaurants: () => void;
 }
 
 export const ItineraryPanel = ({
@@ -39,11 +41,10 @@ export const ItineraryPanel = ({
   optimizeRoute, handleSaveTour, editingTourId,
   setShowItinerary, setShowTourMenu, setShowSaved,
   setShowMyTours, setSelectedTour, setSelectedRestaurant,
+  onBack, onFindRestaurants,
 }: ItineraryPanelProps) => {
   const goBack = () => {
-    setShowItinerary(false); setShowTourMenu(true);
-    setShowSaved(false); setShowMyTours(false);
-    setSelectedTour(null); setSelectedRestaurant(null);
+    onBack();
   };
 
   const toggleTag = (tag: string) => {
@@ -67,7 +68,7 @@ export const ItineraryPanel = ({
             Start exploring restaurants on the map or list and add them to build your tour!
           </p>
           <button
-            onClick={() => setShowItinerary(false)}
+            onClick={onFindRestaurants}
             className="px-6 py-3 bg-[#FF6B35] text-white font-medium rounded-lg hover:bg-[#e55a2b] transition-colors shadow-lg shadow-orange-200"
           >
             Find Restaurants
@@ -179,7 +180,7 @@ export const ItineraryPanel = ({
 
       <div className="sticky bottom-[70px] bg-gray-50 pt-2 pb-2">
         <button
-          onClick={() => setShowItinerary(false)}
+          onClick={onFindRestaurants}
           className="w-full py-3 bg-white border-2 border-[#FF6B35] text-[#FF6B35] rounded-lg font-medium hover:bg-[#FF6B35] hover:text-white transition-colors flex items-center justify-center gap-2 shadow-sm"
         >
           <Search className="w-4 h-4" /> Add More Restaurants
