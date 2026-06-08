@@ -1,14 +1,19 @@
 import React from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { Star, MapPin, Clock, Phone, Share2, Heart, CheckCircle, Wifi, Car, Utensils, Map } from 'lucide-react';
-import { MOCK_RESTAURANTS } from '../lib/data';
+import { useRestaurants } from '../context/RestaurantContext';
 import { MockMap } from '../components/MockMap';
 import { ImageWithFallback } from '../components/figma/ImageWithFallback';
 
 export const RestaurantDetail = () => {
   const { id } = useParams();
   const navigate = useNavigate();
-  const restaurant = MOCK_RESTAURANTS.find(r => r.id === id) || MOCK_RESTAURANTS[0];
+  const { restaurants } = useRestaurants();
+  const restaurant = restaurants.find(r => String(r.id) === id) || restaurants[0];
+
+  if (!restaurant) {
+    return <div className="flex items-center justify-center min-h-screen"><p className="text-gray-500">Đang tải dữ liệu nhà hàng...</p></div>;
+  }
 
   const handleViewOnMap = () => {
     navigate('/planner', { state: { selectedRestaurant: restaurant } });
@@ -74,7 +79,7 @@ export const RestaurantDetail = () => {
                     Closed
                   </span>
                 )}
-                <span className="text-gray-500 text-sm">Closes at 10:00 PM</span>
+                <span className="text-gray-500 text-sm">{restaurant.openingTime && restaurant.closingTime ? `${restaurant.openingTime} - ${restaurant.closingTime}` : 'Giờ mở cửa không xác định'}</span>
               </div>
 
               <div className="flex gap-4 flex-wrap">
@@ -112,7 +117,7 @@ export const RestaurantDetail = () => {
                       <div className="p-3">
                         <h3 className="font-bold text-slate-800 text-sm mb-1">{dish.name}</h3>
                         <div className="flex justify-between items-center">
-                          <span className="text-[#FF6B35] font-medium text-sm">{dish.price}</span>
+                          <span className="text-[#FF6B35] font-medium text-sm">{dish.price} VNĐ</span>
                           {dish.isSignature && <span className="text-[10px] bg-yellow-100 text-yellow-700 px-1.5 py-0.5 rounded font-bold">Signature</span>}
                         </div>
                       </div>
@@ -170,12 +175,12 @@ export const RestaurantDetail = () => {
                 <h3 className="font-bold text-slate-800 mb-4">Information</h3>
                 <div className="space-y-4">
                   <div className="flex items-center justify-between text-sm">
-                    <span className="flex items-center gap-2 text-gray-500"><Clock className="w-4 h-4" /> Mon-Fri</span>
-                    <span className="font-medium">10:00 AM - 10:00 PM</span>
-                  </div>
-                  <div className="flex items-center justify-between text-sm">
-                    <span className="flex items-center gap-2 text-gray-500"><Clock className="w-4 h-4" /> Sat-Sun</span>
-                    <span className="font-medium">9:00 AM - 11:00 PM</span>
+                    <span className="flex items-center gap-2 text-gray-500"><Clock className="w-4 h-4" /> Opening Hours</span>
+                    <span className="font-medium">
+                      {restaurant.openingTime && restaurant.closingTime
+                        ? `${restaurant.openingTime} - ${restaurant.closingTime}`
+                        : 'N/A'}
+                    </span>
                   </div>
                   <hr className="border-gray-100" />
                   <div className="flex items-center justify-between text-sm">
