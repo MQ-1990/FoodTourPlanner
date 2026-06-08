@@ -1,8 +1,10 @@
 import { useState, useRef, useEffect, ChangeEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Users, Store, Star, TrendingUp, Search, Edit, Trash2, Check, X, Plus, BarChart3, LogOut, ChevronDown, User } from 'lucide-react';
-import { MOCK_RESTAURANTS, MOCK_TOURS } from '../lib/data';
+import { MOCK_TOURS } from '../lib/data';
+import { useRestaurants } from '../context/RestaurantContext';
 import { useAuth } from '../context/AuthContext';
+import api from '../lib/api';
 
 type MenuItem = {
   name: string;
@@ -14,6 +16,8 @@ type MenuItem = {
 export default function AdminDashboard() {
   const navigate = useNavigate();
   const { logout, user } = useAuth();
+  const { restaurants: allRestaurants, refetch } = useRestaurants();
+  const [isSaving, setIsSaving] = useState(false);
   const [activeTab, setActiveTab] = useState<'overview' | 'restaurants' | 'users'>('overview');
   const [searchQuery, setSearchQuery] = useState('');
   const [showAddDialog, setShowAddDialog] = useState(false);
@@ -52,26 +56,25 @@ export default function AdminDashboard() {
   // Mock admin stats
   const stats = {
     totalUsers: 1247,
-    totalRestaurants: MOCK_RESTAURANTS.length,
+    totalRestaurants: allRestaurants.length,
     totalReviews: 8542,
     activeTours: MOCK_TOURS.length,
     newUsersThisWeek: 124,
     newReviewsThisWeek: 342
   };
 
-  // Map MOCK_RESTAURANTS to admin-friendly shape
-  const [restaurantList, setRestaurantList] = useState(() =>
-    MOCK_RESTAURANTS.map(r => ({
-      ...r,
-      cuisine: r.tags,
-      district: r.address.split(',').pop()?.trim() || 'N/A',
-      reviews: r.reviewCount,
-      isOpen: r.openNow,
-      openingTime: '',
-      closingTime: '',
-      menu: r.dishes.map(d => ({ name: d.name, price: d.price, image: d.image })),
-    }))
-  );
+  // Derive display list directly from context (always in sync after refetch)
+  const restaurantList = allRestaurants.map(r => ({
+    ...r,
+    cuisine: r.tags,
+    district: r.district || r.address.split(',').pop()?.trim() || 'N/A',
+    reviews: r.reviewCount,
+    isOpen: r.openNow,
+    openingTime: r.openingTime || '',
+    closingTime: r.closingTime || '',
+    amenities: r.amenities || [],
+    menu: r.dishes.map(d => ({ name: d.name, price: d.price, image: d.image })),
+  }));
 
   // Form state for Add Restaurant
   const [newName, setNewName] = useState('');
@@ -81,6 +84,7 @@ export default function AdminDashboard() {
   const [newDescription, setNewDescription] = useState('');
   const [newImageUrl, setNewImageUrl] = useState('');
   const [newDistrict, setNewDistrict] = useState('');
+  const [newAmenities, setNewAmenities] = useState(''); // comma-separated
   const [editingRestaurant, setEditingRestaurant] = useState<any | null>(null);
 
   const [menuItems, setMenuItems] = useState<MenuItem[]>([
@@ -98,6 +102,7 @@ export default function AdminDashboard() {
     setNewDescription('');
     setNewImageUrl('');
     setNewDistrict('');
+    setNewAmenities('');
     setMenuItems([{ name: '', price: '', image: '' }]);
 
     setShowAddDialog(true);
@@ -114,6 +119,7 @@ export default function AdminDashboard() {
     setNewDescription(restaurant.description || '');
     setNewImageUrl(restaurant.image || '');
     setNewDistrict(restaurant.district || '');
+    setNewAmenities(Array.isArray(restaurant.amenities) ? restaurant.amenities.join(', ') : '');
 
     setMenuItems(
       restaurant.menu && restaurant.menu.length
@@ -149,28 +155,69 @@ export default function AdminDashboard() {
     setMenuItems((prev) => prev.filter((_, i) => i !== index));
   };
 
-  const handleImageChange = (e: ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    const previewUrl = URL.createObjectURL(file);
-    setNewImageUrl(previewUrl);
+  const uploadImageFile = async (file: File): Promise<string> => {
+    const formData = new FormData();
+    formData.append('image', file);
+    try {
+      const res = await api.post('/upload/local', formData, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+      });
+      return res.data.imageUrl; // permanent URL
+    } catch (err) {
+      console.error('Upload failed:', err);
+      return ''; // fallback
+    }
   };
 
-  const handleMenuItemImageChange = (index: number, e: ChangeEvent<HTMLInputElement>) => {
+  const handleImageChange = async (e: ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    const preview = URL.createObjectURL(file);
+    // Show preview immediately
+    setNewImageUrl(URL.createObjectURL(file));
+    // Upload and replace with permanent URL
+    const permanentUrl = await uploadImageFile(file);
+    if (permanentUrl) setNewImageUrl(permanentUrl);
+  };
 
+  const handleMenuItemImageChange = async (index: number, e: ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    // Show preview immediately
+    const preview = URL.createObjectURL(file);
     setMenuItems((prev) => {
       const copy = [...prev];
       copy[index].image = preview;
       return copy;
     });
+
+    // Upload and replace with permanent URL
+    const permanentUrl = await uploadImageFile(file);
+    if (permanentUrl) {
+      setMenuItems((prev) => {
+        const copy = [...prev];
+        copy[index].image = permanentUrl;
+        return copy;
+      });
+    }
   };
 
-  const handleSaveRestaurant = () => {
+  const resetForm = () => {
+    setShowAddDialog(false);
+    setEditingRestaurant(null);
+    setNewName('');
+    setNewAddress('');
+    setNewOpeningTime('');
+    setNewClosingTime('');
+    setNewDescription('');
+    setNewImageUrl('');
+    setNewDistrict('');
+    setNewAmenities('');
+    setMenuItems([{ name: '', price: '' }]);
+  };
+
+  const handleSaveRestaurant = async () => {
     if (!newName.trim()) {
       alert('Please enter restaurant name');
       return;
@@ -180,62 +227,55 @@ export default function AdminDashboard() {
       (item) => item.name.trim() && item.price.trim()
     );
 
-    if (editingRestaurant) {
-      // MODE EDIT: cập nhật nhà hàng
-      setRestaurantList((prev) =>
-        prev.map((r) =>
-          r.id === editingRestaurant.id
-            ? {
-              ...r,
-              name: newName,
-              address: newAddress,
-              district: newDistrict || r.district,
-              image: newImageUrl || r.image,
-              openingTime: newOpeningTime,
-              closingTime: newClosingTime,
-              description: newDescription,
-              menu: cleanedMenu,
-            }
-            : r
-        )
-      );
-    } else {
-      // MODE ADD: thêm mới
-      const newRestaurant: any = {
-        id: Date.now().toString(),
-        name: newName,
-        address: newAddress,
-        district: newDistrict || 'Quận 1',
-        image: newImageUrl || 'https://via.placeholder.com/150',
-        cuisine: ['Vietnamese'],
-        tags: ['Vietnamese'],
-        rating: 0,
-        reviews: 0,
-        reviewCount: 0,
-        isOpen: true,
-        openNow: true,
-        openingTime: newOpeningTime,
-        closingTime: newClosingTime,
-        description: newDescription,
-        menu: cleanedMenu,
-        dishes: cleanedMenu,
-      };
+    const amenitiesParsed = newAmenities ? newAmenities.split(',').map(a => a.trim()).filter(Boolean) : [];
 
-      setRestaurantList((prev) => [newRestaurant, ...prev]);
+    setIsSaving(true);
+    try {
+      if (editingRestaurant) {
+        // MODE EDIT: gọi PUT /api/restaurants/:id
+        // Preserve existing fields that the form doesn't edit
+        const editPayload = {
+          name: newName,
+          address: newAddress,
+          district: newDistrict || editingRestaurant.district || 'Quận 1',
+          image: newImageUrl || editingRestaurant.image || '',
+          openingTime: newOpeningTime,
+          closingTime: newClosingTime,
+          description: newDescription,
+          amenities: amenitiesParsed.length > 0 ? amenitiesParsed : (editingRestaurant.amenities || []),
+          dishes: cleanedMenu.length > 0 ? cleanedMenu : (editingRestaurant.dishes || []),
+          // Preserve fields not in the form
+          tags: editingRestaurant.tags || editingRestaurant.cuisine || [],
+          priceRange: editingRestaurant.priceRange || '$$',
+          phone: editingRestaurant.phone || '',
+          lat: editingRestaurant.lat || null,
+          lng: editingRestaurant.lng || null,
+          reviews: editingRestaurant.reviews || [],
+        };
+        await api.put(`/restaurants/${editingRestaurant.id}`, editPayload);
+      } else {
+        // MODE ADD: gọi POST /api/restaurants
+        const addPayload = {
+          name: newName,
+          address: newAddress,
+          district: newDistrict || 'Quận 1',
+          image: newImageUrl || '',
+          openingTime: newOpeningTime,
+          closingTime: newClosingTime,
+          description: newDescription,
+          amenities: amenitiesParsed,
+          dishes: cleanedMenu,
+        };
+        await api.post('/restaurants', addPayload);
+      }
+      await refetch(); // reload data từ backend vào context
+      resetForm();
+    } catch (err: any) {
+      console.error('Lỗi lưu nhà hàng:', err);
+      alert(err?.response?.data?.message || 'Lỗi khi lưu. Kiểm tra console.');
+    } finally {
+      setIsSaving(false);
     }
-
-    // đóng modal + reset
-    setShowAddDialog(false);
-    setEditingRestaurant(null);
-
-    setNewName('');
-    setNewAddress('');
-    setNewOpeningTime('');
-    setNewClosingTime('');
-    setNewDescription('');
-    setNewImageUrl('');
-    setNewDistrict('');
-    setMenuItems([{ name: '', price: '' }]);
   };
 
 
@@ -243,9 +283,14 @@ export default function AdminDashboard() {
     searchQuery === '' || r.name.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
-  const handleDeleteRestaurant = (id: string) => {
-    if (confirm('Are you sure you want to delete this restaurant?')) {
-      setRestaurantList(prev => prev.filter(r => r.id !== id));
+  const handleDeleteRestaurant = async (id: string) => {
+    if (!confirm('Are you sure you want to delete this restaurant?')) return;
+    try {
+      await api.delete(`/restaurants/${id}`);
+      await refetch();
+    } catch (err: any) {
+      console.error('Lỗi xoá nhà hàng:', err);
+      alert(err?.response?.data?.message || 'Lỗi khi xoá. Kiểm tra console.');
     }
   };
 
@@ -416,7 +461,7 @@ export default function AdminDashboard() {
                 <div>
                   <h2 className="text-gray-900 mb-4">Most Popular Restaurants</h2>
                   <div className="space-y-3">
-                    {MOCK_RESTAURANTS.slice(0, 5).map((restaurant, idx) => (
+                    {allRestaurants.slice(0, 5).map((restaurant, idx) => (
                       <div key={restaurant.id} className="flex items-center gap-4 p-4 bg-gray-50 rounded-lg">
                         <div className="text-2xl text-gray-400 w-8">#{idx + 1}</div>
                         <div className="w-16 h-16 rounded-lg overflow-hidden">
@@ -661,15 +706,27 @@ export default function AdminDashboard() {
                   </div>
                 </div>
 
-                <div>
-                  <label className="block text-gray-700 mb-1 text-sm">District</label>
-                  <input
-                    type="text"
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg outline-none focus:ring-2 focus:ring-[#FF6B35] text-sm"
-                    placeholder="Quận 1"
-                    value={newDistrict}
-                    onChange={(e) => setNewDistrict(e.target.value)}
-                  />
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-3">
+                  <div>
+                    <label className="block text-gray-700 mb-1 text-sm">District</label>
+                    <input
+                      type="text"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg outline-none focus:ring-2 focus:ring-[#FF6B35] text-sm"
+                      placeholder="Quận 1"
+                      value={newDistrict}
+                      onChange={(e) => setNewDistrict(e.target.value)}
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-gray-700 mb-1 text-sm">Amenities (comma separated)</label>
+                    <input
+                      type="text"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg outline-none focus:ring-2 focus:ring-[#FF6B35] text-sm"
+                      placeholder="Wifi, Parking, ..."
+                      value={newAmenities}
+                      onChange={(e) => setNewAmenities(e.target.value)}
+                    />
+                  </div>
                 </div>
               </div>
 
@@ -764,7 +821,7 @@ export default function AdminDashboard() {
                       {/* Price */}
                       <input
                         type="text"
-                        placeholder="Price (USD)"
+                        placeholder="Price (VNĐ)"
                         value={item.price}
                         onChange={(e) =>
                           handleMenuItemChange(index, 'price', e.target.value)
@@ -799,9 +856,10 @@ export default function AdminDashboard() {
             <div className="border-t px-6 py-4 flex gap-3">
               <button
                 onClick={handleSaveRestaurant}
-                className="flex-1 bg-[#FF6B35] text-white py-2.5 rounded-lg hover:bg-[#FF5722] transition-colors text-sm"
+                disabled={isSaving}
+                className={`flex-1 py-2.5 rounded-lg transition-colors text-sm ${isSaving ? 'bg-gray-400 text-white cursor-not-allowed' : 'bg-[#FF6B35] text-white hover:bg-[#FF5722]'}`}
               >
-                {editingRestaurant ? 'Save Changes' : 'Add Restaurant'}
+                {isSaving ? 'Saving...' : (editingRestaurant ? 'Save Changes' : 'Add Restaurant')}
               </button>
               <button
                 onClick={() => setShowAddDialog(false)}
