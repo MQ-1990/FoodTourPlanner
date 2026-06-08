@@ -3,11 +3,13 @@ import { Settings, Award, Map, Heart, Edit2, Check, X, Utensils, Phone, MapPin }
 import { Link } from 'react-router-dom';
 import { TourCard } from '../components/TourCard';
 import { RestaurantCard } from '../components/RestaurantCard';
-import { MOCK_TOURS, MOCK_RESTAURANTS } from '../lib/data';
+import { MOCK_TOURS } from '../lib/data';
+import { useRestaurants } from '../context/RestaurantContext';
 import * as Tabs from '@radix-ui/react-tabs';
 import { toast } from 'sonner';
 
 export const Profile = () => {
+  const { restaurants: allRestaurants } = useRestaurants();
   const [isEditing, setIsEditing] = useState(false);
   const [name, setName] = useState('Alex Nguyen');
   const [bio, setBio] = useState('Foodie • Explorer • Coffee Addict');
@@ -21,7 +23,10 @@ export const Profile = () => {
   const [tempAvatar, setTempAvatar] = useState(avatar);
 
   // Preferences state
-  const [selectedPreferences, setSelectedPreferences] = useState(['Món cay', 'Hải sản', 'Cà phê']);
+  const [selectedPreferences, setSelectedPreferences] = useState<string[]>(() => {
+    const saved = localStorage.getItem('userTastePreferences');
+    return saved ? JSON.parse(saved) : ['Món cay', 'Hải sản', 'Cà phê'];
+  });
   const [selectedPriceRange, setSelectedPriceRange] = useState('100,000 - 300,000đ');
   const [selectedArea, setSelectedArea] = useState('Quận 1, TP HCM');
 
@@ -232,7 +237,7 @@ export const Profile = () => {
 
           <Tabs.Content value="favorites" className="animate-in fade-in slide-in-from-bottom-4 duration-500">
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-              {MOCK_RESTAURANTS.map(r => (
+              {allRestaurants.map(r => (
                 <Link key={r.id} to={`/restaurant/${r.id}`}>
                   <RestaurantCard restaurant={r} />
                 </Link>
@@ -297,7 +302,10 @@ export const Profile = () => {
 
               {/* Save Button */}
               <button
-                onClick={() => toast.success('Preferences saved successfully!')}
+                onClick={() => {
+                  localStorage.setItem('userTastePreferences', JSON.stringify(selectedPreferences));
+                  toast.success('Preferences saved successfully!');
+                }}
                 className="w-full bg-[#FF6B35] text-white py-3 rounded-lg font-bold hover:bg-[#e55a2b] transition-colors flex items-center justify-center gap-2"
               >
                 <Check className="w-5 h-5" />
