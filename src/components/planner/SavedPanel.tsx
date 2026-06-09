@@ -106,7 +106,9 @@ export const SavedPanel = ({
         </div>
       ) : (
         <div className="space-y-3">
-          {savedTours.map((tour) => (
+          {savedTours.map((tour) => {
+            const stopCount = Array.isArray(tour.stops) ? tour.stops.length : tour.stops;
+            return (
             <div
               key={tour.id}
               className="bg-white p-4 rounded-lg border border-gray-200 shadow-sm hover:border-[#2E86AB] transition-colors cursor-pointer"
@@ -114,13 +116,13 @@ export const SavedPanel = ({
             >
               <div className="flex gap-3">
                 <div className="w-20 h-20 rounded-lg overflow-hidden shrink-0 bg-gray-100">
-                  <img src={tour.image || '/placeholder.svg'} alt={tour.title} className="w-full h-full object-cover" />
+                  <img src={tour.image || '/placeholder.svg'} alt={tour.title || tour.name} className="w-full h-full object-cover" />
                 </div>
                 <div className="flex-1 min-w-0">
-                  <h3 className="font-medium text-gray-900 mb-2 line-clamp-1">{tour.title}</h3>
+                  <h3 className="font-medium text-gray-900 mb-2 line-clamp-1">{tour.title || tour.name}</h3>
                   <div className="flex items-center gap-3 text-xs text-gray-600 mb-2">
                     <span className="flex items-center gap-1"><Clock className="w-3.5 h-3.5" />{tour.duration}</span>
-                    <span className="flex items-center gap-1"><MapPin className="w-3.5 h-3.5" />{tour.stops} stops</span>
+                    <span className="flex items-center gap-1"><MapPin className="w-3.5 h-3.5" />{stopCount} stops</span>
                   </div>
                   <div className="flex items-center gap-1 text-yellow-500 mb-2">
                     <Star className="w-3.5 h-3.5 fill-current" />
@@ -135,7 +137,7 @@ export const SavedPanel = ({
                 </div>
               </div>
             </div>
-          ))}
+          )})}
         </div>
       )}
     </>
