@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { DndProvider } from "react-dnd";
 import { HTML5Backend } from "react-dnd-html5-backend";
 import {
@@ -18,6 +18,7 @@ import {
 import { useRestaurants } from "../context/RestaurantContext";
 import { useAuth } from "../context/AuthContext";
 import { toast } from "sonner";
+import api from "../lib/api";
 import {
   DraggableStop,
   SearchMenu,
@@ -43,6 +44,7 @@ export const Planner = () => {
 
   // Tour state
   const [tourStops, setTourStops] = useState<Restaurant[]>([]);
+  const tourStopsRef = useRef<Restaurant[]>([]);
   const [tourName, setTourName] = useState("My Food Tour");
   const [tourDescription, setTourDescription] = useState("");
   const [tourTags, setTourTags] = useState<string[]>([]);
@@ -55,6 +57,10 @@ export const Planner = () => {
   const [showMiniItinerary, setShowMiniItinerary] =
     useState(false);
   const [hasLoadedItineraryDraft, setHasLoadedItineraryDraft] = useState(false);
+
+  useEffect(() => {
+    tourStopsRef.current = tourStops;
+  }, [tourStops]);
 
   // Tour Menu state
   const [showTourMenu, setShowTourMenu] = useState(false);
@@ -157,19 +163,35 @@ export const Planner = () => {
     null,
   );
 
-  // Initialize favorites with all restaurants from API
+  // Favorites from backend profile
   const [favoriteRestaurants, setFavoriteRestaurants] =
     useState<Restaurant[]>([]);
+  const [favoriteIds, setFavoriteIds] = useState<number[]>([]);
   // Initialize saved tours with all MOCK_TOURS (same as Profile page)
   const [savedTours, setSavedTours] =
     useState<any[]>(MOCK_TOURS);
 
-  // Sync favorites when restaurants load from API
-  useEffect(() => {
-    if (allRestaurants.length > 0) {
-      setFavoriteRestaurants(allRestaurants);
+  const fetchFavoriteRestaurants = async () => {
+    try {
+      const res = await api.get("/users/me");
+      const ids = Array.isArray(res.data?.favorites) ? res.data.favorites : [];
+      setFavoriteIds(ids);
+    } catch (err) {
+      console.error("Failed to fetch favorites:", err);
+      setFavoriteIds([]);
     }
-  }, [allRestaurants]);
+  };
+
+  // Sync favorites when profile/restaurants load from API
+  useEffect(() => {
+    fetchFavoriteRestaurants();
+  }, []);
+
+  useEffect(() => {
+    setFavoriteRestaurants(
+      allRestaurants.filter((restaurant) => favoriteIds.includes(Number(restaurant.id))),
+    );
+  }, [allRestaurants, favoriteIds]);
 
   // Track which saved category is being viewed: null | 'favorites' | 'tours'
   const [savedCategory, setSavedCategory] = useState<
@@ -180,13 +202,93 @@ export const Planner = () => {
   const [showMyTours, setShowMyTours] = useState(false);
   const [myTours, setMyTours] = useState<any[]>([]);
 
-  // Load my tours from local storage
-  useEffect(() => {
-    const storedTours = JSON.parse(
-      localStorage.getItem("savedTours") || "[]",
+  const normalizeBackendRestaurant = (restaurant: any): Restaurant | null => {
+    if (!restaurant) return null;
+    const matched = allRestaurants.find(
+      (item) =>
+        String(item._id) === String(restaurant._id) ||
+        String(item.id) === String(restaurant.id),
     );
-    setMyTours(storedTours);
-  }, []);
+
+    if (matched) return matched;
+
+    return {
+      ...restaurant,
+      id: String(restaurant.id ?? restaurant._id),
+      reviewCount: restaurant.reviewCount ?? 0,
+      priceRange: restaurant.priceRange ?? "$$",
+      image:
+        restaurant.image ||
+        "https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?auto=format&fit=crop&w=800&q=80",
+      tags: restaurant.tags ?? [],
+      description: restaurant.description ?? "",
+      dishes: restaurant.dishes ?? [],
+      reviews: restaurant.reviews ?? [],
+      amenities: restaurant.amenities ?? [],
+      lat: restaurant.lat ?? 0,
+      lng: restaurant.lng ?? 0,
+    };
+  };
+
+  const normalizeBackendTour = (tour: any) => {
+    const stops = Array.isArray(tour.restaurants)
+      ? tour.restaurants
+        .slice()
+        .sort((a: any, b: any) => (a.order || 0) - (b.order || 0))
+        .map((item: any) => normalizeBackendRestaurant(item.restaurant))
+        .filter(Boolean)
+      : [];
+
+    return {
+      ...tour,
+      id: String(tour._id ?? tour.id),
+      title: tour.name,
+      stops,
+      tags: tour.tags || [],
+      image: stops[0]?.image || "https://images.unsplash.com/photo-1504674900247-0877df9cc836?w=800&q=60",
+      duration: `${stops.length * 1.5} hours`,
+      distance: tour.totalDistance ? `${tour.totalDistance.toFixed(1)} km` : "N/A",
+      rating: tour.rating || 0,
+      isBackendTour: true,
+    };
+  };
+
+  const getRestaurantObjectId = (restaurant: Restaurant) => {
+    if (restaurant._id) return restaurant._id;
+    return allRestaurants.find((item) => String(item.id) === String(restaurant.id))?._id;
+  };
+
+  const fetchMyTours = async () => {
+    try {
+      const res = await api.get("/tours");
+      setMyTours((res.data || []).map(normalizeBackendTour));
+    } catch (err) {
+      console.error("Failed to fetch tours:", err);
+      const storedTours = JSON.parse(
+        localStorage.getItem("savedTours") || "[]",
+      );
+      setMyTours(storedTours);
+      toast.error("Could not load tours from server. Showing local tours.");
+    }
+  };
+
+  const fetchPublicTours = async () => {
+    try {
+      const res = await api.get("/tours/public");
+      setSavedTours((res.data || []).map(normalizeBackendTour));
+    } catch (err) {
+      console.error("Failed to fetch public tours:", err);
+      setSavedTours(MOCK_TOURS);
+    }
+  };
+
+  // Load my tours from backend, with local fallback
+  useEffect(() => {
+    if (!isLoadingRestaurants) {
+      fetchMyTours();
+      fetchPublicTours();
+    }
+  }, [isLoadingRestaurants, allRestaurants.length]);
 
   const itineraryDraftKey = `currentItineraryDraft:${user?.id || "guest"}`;
 
@@ -273,11 +375,15 @@ export const Planner = () => {
   ];
 
   // Remove from favorites
-  const removeFavorite = (id: string) => {
-    setFavoriteRestaurants((prev) =>
-      prev.filter((r) => r.id !== id),
-    );
-    toast.success("Removed from favorites");
+  const removeFavorite = async (id: string) => {
+    try {
+      await api.delete(`/users/me/favorites/${id}`);
+      setFavoriteIds((prev) => prev.filter((favoriteId) => favoriteId !== Number(id)));
+      toast.success("Removed from favorites");
+    } catch (err: any) {
+      console.error("Failed to remove favorite:", err);
+      toast.error(err?.response?.data?.message || "Could not remove favorite");
+    }
   };
 
   // Remove from saved tours
@@ -322,7 +428,7 @@ export const Planner = () => {
     setSelectedTour(null);
     setEditingTourId(null); // Default to new tour unless specified otherwise
 
-    toast.success(`Loaded "${tour.title}"!`);
+    toast.success(`Loaded "${tour.title || tour.name}"!`);
   };
 
   // Get tour restaurants for display
@@ -421,8 +527,8 @@ export const Planner = () => {
 
   // --- 2. FILTER TOURS LOGIC ---
   const getAllTours = () => {
-    const allTours = [...MOCK_TOURS];
-    // Add user's created tours that aren't already in MOCK_TOURS
+    const allTours = [...savedTours];
+    // Add user's created tours that aren't already in public/saved tours
     myTours.forEach((tour) => {
       if (!allTours.find((t) => t.id === tour.id)) {
         allTours.push({
@@ -601,16 +707,66 @@ export const Planner = () => {
   };
 
   // Tour management functions
+  const syncUpdatedTour = (backendTour: any) => {
+    const updatedTour = normalizeBackendTour(backendTour);
+    setMyTours((prev) => prev.map((tour) => tour.id === updatedTour.id ? updatedTour : tour));
+    setSavedTours((prev) => prev.map((tour) => tour.id === updatedTour.id ? updatedTour : tour));
+    return updatedTour;
+  };
+
   const moveStop = (dragIndex: number, hoverIndex: number) => {
     const dragStop = tourStops[dragIndex];
     const newStops = [...tourStops];
     newStops.splice(dragIndex, 1);
     newStops.splice(hoverIndex, 0, dragStop);
+    tourStopsRef.current = newStops;
     setTourStops(newStops);
   };
 
-  const removeStop = (id: string) => {
-    setTourStops(tourStops.filter((s) => s.id !== id));
+  const syncStopOrder = async () => {
+    if (!editingTourId) return;
+
+    const stopsToSync = tourStopsRef.current;
+    const restaurantIds = stopsToSync.map(getRestaurantObjectId).filter(Boolean);
+    if (restaurantIds.length !== stopsToSync.length) {
+      toast.error("Could not sync order: missing restaurant ids");
+      return;
+    }
+
+    try {
+      const res = await api.patch(`/tours/${editingTourId}/reorder`, {
+        restaurantIds,
+      });
+      const updatedTour = syncUpdatedTour(res.data.tour);
+      setTourStops(updatedTour.stops);
+    } catch (err: any) {
+      console.error("Failed to reorder tour:", err);
+      toast.error(err?.response?.data?.message || "Could not sync new order");
+    }
+  };
+
+  const removeStop = async (id: string) => {
+    const removedStop = tourStops.find((stop) => String(stop.id) === String(id));
+    const newStops = tourStops.filter((stop) => String(stop.id) !== String(id));
+    setTourStops(newStops);
+
+    if (!editingTourId || !removedStop) return;
+
+    const restaurantId = getRestaurantObjectId(removedStop);
+    if (!restaurantId) {
+      toast.error("Could not remove stop: missing restaurant id");
+      return;
+    }
+
+    try {
+      const res = await api.delete(`/tours/${editingTourId}/restaurants/${restaurantId}`);
+      const updatedTour = syncUpdatedTour(res.data.tour);
+      setTourStops(updatedTour.stops);
+    } catch (err: any) {
+      console.error("Failed to remove stop:", err);
+      setTourStops(tourStops);
+      toast.error(err?.response?.data?.message || "Could not remove stop");
+    }
   };
 
   const toggleRestaurantSelection = (
@@ -631,13 +787,35 @@ export const Planner = () => {
     }
   };
 
-  const optimizeRoute = () => {
+  const optimizeRoute = async () => {
+    if (editingTourId) {
+      try {
+        const res = await api.post(`/tours/${editingTourId}/optimize`);
+        const updatedTour = syncUpdatedTour(res.data.tour);
+        setTourStops(updatedTour.stops);
+        toast.success("Route optimized!");
+      } catch (err: any) {
+        console.error("Failed to optimize tour:", err);
+        toast.error(err?.response?.data?.message || "Could not optimize route");
+      }
+      return;
+    }
+
     const sorted = [...tourStops].sort((a, b) => a.lat - b.lat);
     setTourStops(sorted);
     toast.success("Route optimized!");
   };
 
-  const handleSaveTour = () => {
+  const handleSaveTour = async () => {
+    const restaurantIds = tourStops
+      .map(getRestaurantObjectId)
+      .filter(Boolean);
+
+    if (restaurantIds.length !== tourStops.length) {
+      toast.error("Some restaurants are missing backend ids. Please refresh and try again.");
+      return;
+    }
+
     const tour = {
       id: editingTourId || Date.now().toString(),
       name: tourName,
@@ -649,6 +827,40 @@ export const Planner = () => {
           ?.createdAt || new Date().toISOString()
         : new Date().toISOString(),
     };
+
+    try {
+      const payload = {
+        name: tourName,
+        description: tourDescription,
+        restaurantIds,
+      };
+
+      const res = editingTourId
+        ? await api.put(`/tours/${editingTourId}`, payload)
+        : await api.post("/tours", payload);
+      const savedTour = normalizeBackendTour(res.data.tour);
+
+      if (editingTourId) {
+        setMyTours((prev) => prev.map((item) => item.id === editingTourId ? savedTour : item));
+        setSavedTours((prev) => prev.map((item) => item.id === editingTourId ? savedTour : item));
+        toast.success(`"${tourName}" updated successfully!`);
+      } else {
+        setMyTours((prev) => [savedTour, ...prev]);
+        setSavedTours((prev) => prev.find((item) => item.id === savedTour.id) ? prev : [...prev, savedTour]);
+        toast.success(`"${tourName}" saved successfully!`);
+      }
+
+      setTourStops([]);
+      setTourName("My Food Tour");
+      setTourDescription("");
+      setTourTags([]);
+      setEditingTourId(null);
+      localStorage.removeItem(itineraryDraftKey);
+      return;
+    } catch (err: any) {
+      console.error("Failed to save tour to backend:", err);
+      toast.error(err?.response?.data?.message || "Could not save tour to server. Saved locally instead.");
+    }
 
     let newSavedTours;
     if (editingTourId) {
@@ -693,14 +905,44 @@ export const Planner = () => {
     setEditingTourId(null);
   };
 
-  const handleDeleteMyTour = (id: string) => {
-    const newTours = myTours.filter((t) => t.id !== id);
-    setMyTours(newTours);
-    localStorage.setItem(
-      "savedTours",
-      JSON.stringify(newTours),
-    );
-    toast.success("Tour deleted");
+  const handleDeleteMyTour = async (id: string) => {
+    try {
+      await api.delete(`/tours/${id}`);
+      setMyTours((prev) => prev.filter((t) => t.id !== id));
+      setSavedTours((prev) => prev.filter((t) => t.id !== id));
+      toast.success("Tour deleted");
+    } catch (err: any) {
+      console.error("Failed to delete tour from backend:", err);
+      const newTours = myTours.filter((t) => t.id !== id);
+      setMyTours(newTours);
+      localStorage.setItem(
+        "savedTours",
+        JSON.stringify(newTours),
+      );
+      toast.error(err?.response?.data?.message || "Could not delete tour from server. Removed locally.");
+    }
+  };
+
+  const handleToggleTourPrivacy = async (tour: any) => {
+    try {
+      const nextIsPublic = !tour.isPublic;
+      const res = await api.patch(`/tours/${tour.id}/privacy`, {
+        isPublic: nextIsPublic,
+      });
+      const updatedTour = normalizeBackendTour(res.data.tour);
+
+      setMyTours((prev) => prev.map((item) => item.id === tour.id ? updatedTour : item));
+      setSelectedTour(updatedTour);
+      setSavedTours((prev) => {
+        const withoutTour = prev.filter((item) => item.id !== tour.id);
+        return nextIsPublic ? [updatedTour, ...withoutTour] : withoutTour;
+      });
+
+      toast.success(`Tour is now ${nextIsPublic ? "public" : "private"}`);
+    } catch (err: any) {
+      console.error("Failed to update tour privacy:", err);
+      toast.error(err?.response?.data?.message || "Could not update tour privacy");
+    }
   };
 
   const handleEditMyTour = (tour: any) => {
@@ -886,6 +1128,22 @@ export const Planner = () => {
     setShowItinerary(true);
     setShowMiniItinerary(false);
     setShowTourMenu(false);
+    setShowSaved(false);
+    setShowMyTours(false);
+    setShowSearchMenu(false);
+    setShowRestaurantSearch(false);
+    setShowTourSearch(false);
+    setShowDishSearch(false);
+    setSelectedRestaurant(null);
+    setSelectedTour(null);
+    setSelectedDish(null);
+    setSavedCategory(null);
+  };
+
+  const handleItineraryBack = () => {
+    setShowItinerary(false);
+    setShowMiniItinerary(false);
+    setShowTourMenu(true);
     setShowSaved(false);
     setShowMyTours(false);
     setShowSearchMenu(false);
@@ -1176,6 +1434,7 @@ export const Planner = () => {
                     loadTour={loadTour}
                     handleEditMyTour={handleEditMyTour}
                     handleDeleteMyTour={handleDeleteMyTour}
+                    handleToggleTourPrivacy={handleToggleTourPrivacy}
                     removeSavedTour={removeSavedTour}
                     setShowMyTours={setShowMyTours}
                     setSelectedTour={setSelectedTour}
@@ -1222,6 +1481,7 @@ export const Planner = () => {
                     handleNameSave={handleNameSave}
                     handleNameCancel={handleNameCancel}
                     moveStop={moveStop}
+                    syncStopOrder={syncStopOrder}
                     removeStop={removeStop}
                     handleRestaurantClick={handleRestaurantClick}
                     optimizeRoute={optimizeRoute}
@@ -1233,7 +1493,7 @@ export const Planner = () => {
                     setShowMyTours={setShowMyTours}
                     setSelectedTour={setSelectedTour}
                     setSelectedRestaurant={setSelectedRestaurant}
-                    onBack={showTourMenuPanel}
+                    onBack={handleItineraryBack}
                     onFindRestaurants={showRestaurantSearchPanel}
                   />
                 ) : (
