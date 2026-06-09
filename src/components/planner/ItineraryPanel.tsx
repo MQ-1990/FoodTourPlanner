@@ -17,6 +17,7 @@ interface ItineraryPanelProps {
   handleNameSave: () => void;
   handleNameCancel: () => void;
   moveStop: (from: number, to: number) => void;
+  syncStopOrder: () => void;
   removeStop: (id: string) => void;
   handleRestaurantClick: (r: Restaurant) => void;
   optimizeRoute: () => void;
@@ -37,7 +38,7 @@ export const ItineraryPanel = ({
   tourTags, setTourTags, availableTags,
   isEditingName, setIsEditingName, tempName, setTempName,
   handleNameSave, handleNameCancel,
-  moveStop, removeStop, handleRestaurantClick,
+  moveStop, syncStopOrder, removeStop, handleRestaurantClick,
   optimizeRoute, handleSaveTour, editingTourId,
   setShowItinerary, setShowTourMenu, setShowSaved,
   setShowMyTours, setSelectedTour, setSelectedRestaurant,
@@ -55,7 +56,7 @@ export const ItineraryPanel = ({
     return (
       <div className="h-full flex flex-col bg-gray-50">
         <div className="p-4">
-          <button onClick={goBack} className="flex items-center gap-2 text-gray-600 hover:text-gray-900">
+          <button type="button" onClick={goBack} className="flex items-center gap-2 text-gray-600 hover:text-gray-900">
             <ChevronLeft className="w-5 h-5" /><span>Back</span>
           </button>
         </div>
@@ -81,7 +82,7 @@ export const ItineraryPanel = ({
   return (
     <div className="p-4 bg-gray-50 h-full flex flex-col">
       <div className="mb-4">
-        <button onClick={goBack} className="flex items-center gap-2 text-gray-600 hover:text-gray-900 mb-4">
+        <button type="button" onClick={goBack} className="flex items-center gap-2 text-gray-600 hover:text-gray-900 mb-4">
           <ChevronLeft className="w-5 h-5" /><span>Back</span>
         </button>
 
@@ -172,7 +173,7 @@ export const ItineraryPanel = ({
             <div className="mt-5 w-2.5 h-2.5 rounded-full bg-[#FF6B35] ring-4 ring-white shrink-0" />
             <div className="flex-1 min-w-0">
               <span className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-1 block">Stop {index + 1}</span>
-              <DraggableStop stop={stop} index={index} moveStop={moveStop} removeStop={removeStop} onStopClick={handleRestaurantClick} />
+              <DraggableStop stop={stop} index={index} moveStop={moveStop} syncStopOrder={syncStopOrder} removeStop={removeStop} onStopClick={handleRestaurantClick} />
             </div>
           </div>
         ))}
