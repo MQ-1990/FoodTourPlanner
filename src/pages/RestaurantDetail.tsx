@@ -1,30 +1,142 @@
-import React from 'react';
-import { useParams, Link, useNavigate } from 'react-router-dom';
-import { Star, MapPin, Clock, Phone, Share2, Heart, CheckCircle, Wifi, Car, Utensils, Map } from 'lucide-react';
+import React, { useEffect, useState } from 'react';
+import { useParams, useNavigate } from 'react-router-dom';
+import { Star, MapPin, Clock, Phone, Share2, Heart, CheckCircle, Map } from 'lucide-react';
 import { useRestaurants } from '../context/RestaurantContext';
+import { useAuth } from '../context/AuthContext';
 import { MockMap } from '../components/MockMap';
-import { ImageWithFallback } from '../components/figma/ImageWithFallback';
+import api from '../lib/api';
+
+interface ApiReview {
+  _id: string;
+  rating: number;
+  content: string;
+  createdAt: string;
+  user?: {
+    _id?: string;
+    username?: string;
+    email?: string;
+    avatar?: string;
+  };
+}
 
 export const RestaurantDetail = () => {
   const { id } = useParams();
   const navigate = useNavigate();
   const { restaurants } = useRestaurants();
-  const restaurant = restaurants.find(r => String(r.id) === id) || restaurants[0];
+  const { isAuthenticated } = useAuth();
+  const restaurant = restaurants.find((r) => String(r.id) === id) || restaurants[0];
+
+  const [reviews, setReviews] = useState<ApiReview[]>([]);
+  const [isLoadingReviews, setIsLoadingReviews] = useState(false);
+  const [reviewRating, setReviewRating] = useState(5);
+  const [reviewContent, setReviewContent] = useState('');
+  const [isSubmittingReview, setIsSubmittingReview] = useState(false);
+  const [favoriteIds, setFavoriteIds] = useState<number[]>([]);
+
+  const fetchReviews = async () => {
+    if (!restaurant?.id) return;
+
+    setIsLoadingReviews(true);
+    try {
+      const res = await api.get(`/restaurants/${restaurant.id}/reviews`);
+      setReviews(res.data || []);
+    } catch (err) {
+      console.error('Failed to fetch reviews:', err);
+      setReviews([]);
+    } finally {
+      setIsLoadingReviews(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchReviews();
+  }, [restaurant?.id]);
+
+  useEffect(() => {
+    const fetchProfileFavorites = async () => {
+      if (!isAuthenticated) {
+        setFavoriteIds([]);
+        return;
+      }
+
+      try {
+        const res = await api.get('/users/me');
+        setFavoriteIds(Array.isArray(res.data?.favorites) ? res.data.favorites : []);
+      } catch (err) {
+        console.error('Failed to fetch favorites:', err);
+        setFavoriteIds([]);
+      }
+    };
+
+    fetchProfileFavorites();
+  }, [isAuthenticated]);
 
   if (!restaurant) {
-    return <div className="flex items-center justify-center min-h-screen"><p className="text-gray-500">Đang tải dữ liệu nhà hàng...</p></div>;
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <p className="text-gray-500">Loading restaurant...</p>
+      </div>
+    );
   }
 
   const handleViewOnMap = () => {
     navigate('/planner', { state: { selectedRestaurant: restaurant } });
   };
 
+  const handleSubmitReview = async () => {
+    if (!isAuthenticated) {
+      navigate('/login');
+      return;
+    }
+
+    if (!reviewContent.trim()) return;
+
+    setIsSubmittingReview(true);
+    try {
+      await api.post(`/restaurants/${restaurant.id}/reviews`, {
+        rating: reviewRating,
+        content: reviewContent.trim(),
+      });
+      setReviewContent('');
+      setReviewRating(5);
+      await fetchReviews();
+    } catch (err: any) {
+      console.error('Failed to submit review:', err);
+      alert(err?.response?.data?.message || 'Failed to submit review');
+    } finally {
+      setIsSubmittingReview(false);
+    }
+  };
+
+  const isFavorite = favoriteIds.includes(Number(restaurant.id));
+
+  const handleToggleFavorite = async () => {
+    if (!isAuthenticated) {
+      navigate('/login');
+      return;
+    }
+
+    try {
+      if (isFavorite) {
+        await api.delete(`/users/me/favorites/${restaurant.id}`);
+        setFavoriteIds((prev) => prev.filter((favoriteId) => favoriteId !== Number(restaurant.id)));
+      } else {
+        const res = await api.post('/users/me/favorites', { rid: Number(restaurant.id) });
+        setFavoriteIds(Array.isArray(res.data?.favorites) ? res.data.favorites : [...favoriteIds, Number(restaurant.id)]);
+      }
+    } catch (err: any) {
+      console.error('Failed to update favorite:', err);
+      alert(err?.response?.data?.message || 'Failed to update favorite');
+    }
+  };
+
+  const displayedReviewCount = reviews.length || restaurant.reviewCount || 0;
+
   return (
     <div className="bg-white min-h-screen pb-20">
-      {/* Top Banner Grid */}
       <div className="grid grid-cols-1 md:grid-cols-4 h-[300px] md:h-[400px] gap-1">
         <div className="md:col-span-2 h-full overflow-hidden relative group">
-          <img src={restaurant.image} alt="Main" className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700" />
+          <img src={restaurant.image} alt={restaurant.name} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700" />
           <div className="absolute inset-0 bg-black/10 group-hover:bg-transparent transition-colors" />
         </div>
         <div className="hidden md:block col-span-1 h-full overflow-hidden relative group">
@@ -40,9 +152,7 @@ export const RestaurantDetail = () => {
 
       <div className="container mx-auto px-4 -mt-8 relative z-10">
         <div className="flex flex-col lg:flex-row gap-8">
-          {/* Main Content */}
           <div className="flex-1">
-            {/* Header Card */}
             <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6 mb-8">
               <div className="flex justify-between items-start mb-4">
                 <div>
@@ -51,10 +161,12 @@ export const RestaurantDetail = () => {
                     <div className="flex items-center gap-1 text-yellow-500 font-bold">
                       <span className="text-lg">{restaurant.rating}</span>
                       <div className="flex">
-                        {[1, 2, 3, 4, 5].map(s => <Star key={s} className={`w-4 h-4 ${s <= Math.round(restaurant.rating) ? 'fill-current' : 'text-gray-300'}`} />)}
+                        {[1, 2, 3, 4, 5].map((star) => (
+                          <Star key={star} className={`w-4 h-4 ${star <= Math.round(restaurant.rating) ? 'fill-current' : 'text-gray-300'}`} />
+                        ))}
                       </div>
                     </div>
-                    <span className="text-gray-400">({restaurant.reviewCount} reviews)</span>
+                    <span className="text-gray-400">({displayedReviewCount} reviews)</span>
                     <span className="text-gray-300">|</span>
                     <span className="font-medium text-slate-600">{restaurant.priceRange} - {restaurant.tags.join(', ')}</span>
                   </div>
@@ -63,8 +175,11 @@ export const RestaurantDetail = () => {
                   <button className="p-2 rounded-full border border-gray-200 hover:bg-gray-50 text-gray-500">
                     <Share2 className="w-5 h-5" />
                   </button>
-                  <button className="p-2 rounded-full border border-gray-200 hover:border-red-500 hover:text-red-500 text-gray-500 transition-colors">
-                    <Heart className="w-5 h-5" />
+                  <button
+                    onClick={handleToggleFavorite}
+                    className={`p-2 rounded-full border transition-colors ${isFavorite ? 'border-red-500 text-red-500 bg-red-50' : 'border-gray-200 hover:border-red-500 hover:text-red-500 text-gray-500'}`}
+                  >
+                    <Heart className={`w-5 h-5 ${isFavorite ? 'fill-current' : ''}`} />
                   </button>
                 </div>
               </div>
@@ -79,7 +194,9 @@ export const RestaurantDetail = () => {
                     Closed
                   </span>
                 )}
-                <span className="text-gray-500 text-sm">{restaurant.openingTime && restaurant.closingTime ? `${restaurant.openingTime} - ${restaurant.closingTime}` : 'Giờ mở cửa không xác định'}</span>
+                <span className="text-gray-500 text-sm">
+                  {restaurant.openingTime && restaurant.closingTime ? `${restaurant.openingTime} - ${restaurant.closingTime}` : 'Opening hours unavailable'}
+                </span>
               </div>
 
               <div className="flex gap-4 flex-wrap">
@@ -90,13 +207,15 @@ export const RestaurantDetail = () => {
                   <Map className="w-5 h-5" />
                   View on Map
                 </button>
-                <button className="flex-1 border-2 border-slate-200 text-slate-700 font-bold py-3 px-6 rounded-lg hover:border-slate-800 hover:text-slate-900 transition-colors">
+                <button
+                  onClick={() => document.getElementById('reviewForm')?.scrollIntoView({ behavior: 'smooth' })}
+                  className="flex-1 border-2 border-slate-200 text-slate-700 font-bold py-3 px-6 rounded-lg hover:border-slate-800 hover:text-slate-900 transition-colors"
+                >
                   Write Review
                 </button>
               </div>
             </div>
 
-            {/* About Section */}
             {restaurant.description && (
               <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6 mb-8">
                 <h2 className="text-xl font-bold text-slate-800 mb-4">About</h2>
@@ -104,12 +223,11 @@ export const RestaurantDetail = () => {
               </div>
             )}
 
-            {/* Signature Dishes */}
             {restaurant.dishes.length > 0 && (
               <div className="mb-10">
                 <h2 className="text-xl font-bold text-slate-800 mb-4">Must Try Dishes</h2>
                 <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-                  {restaurant.dishes.map(dish => (
+                  {restaurant.dishes.map((dish) => (
                     <div key={dish.id} className="bg-white rounded-lg border border-gray-100 overflow-hidden group">
                       <div className="h-32 overflow-hidden">
                         <img src={dish.image} alt={dish.name} className="w-full h-full object-cover group-hover:scale-105 transition-transform" />
@@ -117,7 +235,7 @@ export const RestaurantDetail = () => {
                       <div className="p-3">
                         <h3 className="font-bold text-slate-800 text-sm mb-1">{dish.name}</h3>
                         <div className="flex justify-between items-center">
-                          <span className="text-[#FF6B35] font-medium text-sm">{dish.price} VNĐ</span>
+                          <span className="text-[#FF6B35] font-medium text-sm">{dish.price} VND</span>
                           {dish.isSignature && <span className="text-[10px] bg-yellow-100 text-yellow-700 px-1.5 py-0.5 rounded font-bold">Signature</span>}
                         </div>
                       </div>
@@ -127,34 +245,73 @@ export const RestaurantDetail = () => {
               </div>
             )}
 
-            {/* Reviews */}
             <div className="mb-8">
               <h2 className="text-xl font-bold text-slate-800 mb-4">Reviews</h2>
+              <div id="reviewForm" className="bg-gray-50 border border-gray-100 rounded-xl p-4 mb-6">
+                <div className="flex items-center justify-between gap-3 mb-3">
+                  <h3 className="font-bold text-slate-800">Write a review</h3>
+                  <select
+                    value={reviewRating}
+                    onChange={(e) => setReviewRating(Number(e.target.value))}
+                    className="px-3 py-2 border border-gray-300 rounded-lg bg-white text-sm outline-none"
+                  >
+                    {[5, 4, 3, 2, 1].map((rating) => (
+                      <option key={rating} value={rating}>{rating} stars</option>
+                    ))}
+                  </select>
+                </div>
+                <textarea
+                  value={reviewContent}
+                  onChange={(e) => setReviewContent(e.target.value)}
+                  rows={3}
+                  placeholder={isAuthenticated ? 'Share your experience...' : 'Login to write a review'}
+                  disabled={!isAuthenticated}
+                  className="w-full px-4 py-3 border border-gray-300 rounded-lg outline-none focus:ring-2 focus:ring-[#FF6B35] disabled:bg-gray-100"
+                />
+                <button
+                  onClick={handleSubmitReview}
+                  disabled={!isAuthenticated || isSubmittingReview || !reviewContent.trim()}
+                  className="mt-3 bg-[#FF6B35] text-white px-5 py-2.5 rounded-lg font-bold hover:bg-[#e55a2b] transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed"
+                >
+                  {isSubmittingReview ? 'Submitting...' : isAuthenticated ? 'Submit Review' : 'Login to Review'}
+                </button>
+              </div>
+
               <div className="space-y-6">
-                {restaurant.reviews.map(review => (
-                  <div key={review.id} className="border-b border-gray-100 pb-6">
-                    <div className="flex items-center gap-3 mb-3">
-                      <img src={review.avatar} alt={review.user} className="w-10 h-10 rounded-full" />
-                      <div>
-                        <h4 className="font-bold text-slate-800 text-sm">{review.user}</h4>
-                        <div className="flex items-center gap-2 text-xs text-gray-500">
-                          <div className="flex text-yellow-400"><Star className="w-3 h-3 fill-current" /><Star className="w-3 h-3 fill-current" /><Star className="w-3 h-3 fill-current" /><Star className="w-3 h-3 fill-current" /><Star className="w-3 h-3 fill-current" /></div>
-                          <span>• {review.date}</span>
+                {isLoadingReviews && <p className="text-sm text-gray-500">Loading reviews...</p>}
+                {!isLoadingReviews && reviews.length === 0 && (
+                  <p className="text-sm text-gray-500">No reviews yet.</p>
+                )}
+                {reviews.map((review) => {
+                  const reviewUser = review.user?.username || review.user?.email || 'Anonymous';
+                  const reviewAvatar = review.user?.avatar || `https://i.pravatar.cc/150?u=${review.user?._id || review._id}`;
+
+                  return (
+                    <div key={review._id} className="border-b border-gray-100 pb-6">
+                      <div className="flex items-center gap-3 mb-3">
+                        <img src={reviewAvatar} alt={reviewUser} className="w-10 h-10 rounded-full" />
+                        <div>
+                          <h4 className="font-bold text-slate-800 text-sm">{reviewUser}</h4>
+                          <div className="flex items-center gap-2 text-xs text-gray-500">
+                            <div className="flex text-yellow-400">
+                              {[1, 2, 3, 4, 5].map((star) => (
+                                <Star key={star} className={`w-3 h-3 ${star <= review.rating ? 'fill-current' : 'text-gray-300'}`} />
+                              ))}
+                            </div>
+                            <span>- {new Date(review.createdAt).toLocaleDateString()}</span>
+                          </div>
                         </div>
                       </div>
+                      <p className="text-slate-600 text-sm leading-relaxed">{review.content}</p>
                     </div>
-                    <p className="text-slate-600 text-sm leading-relaxed">{review.text}</p>
-                  </div>
-                ))}
-                <button className="w-full py-3 text-slate-500 font-medium hover:text-[#FF6B35] text-sm">View all 1,204 reviews</button>
+                  );
+                })}
               </div>
             </div>
           </div>
 
-          {/* Sidebar Info */}
           <div className="w-full lg:w-80 shrink-0">
             <div className="sticky top-24 space-y-6">
-              {/* Map Widget */}
               <div className="bg-white rounded-xl border border-gray-100 overflow-hidden p-1">
                 <div className="h-40 w-full rounded-lg overflow-hidden relative">
                   <MockMap className="w-full h-full" restaurants={[restaurant]} zoom={14} />
@@ -170,7 +327,6 @@ export const RestaurantDetail = () => {
                 </div>
               </div>
 
-              {/* Info Widget */}
               <div className="bg-white rounded-xl border border-gray-100 p-6">
                 <h3 className="font-bold text-slate-800 mb-4">Information</h3>
                 <div className="space-y-4">
@@ -185,22 +341,23 @@ export const RestaurantDetail = () => {
                   <hr className="border-gray-100" />
                   <div className="flex items-center justify-between text-sm">
                     <span className="flex items-center gap-2 text-gray-500"><Phone className="w-4 h-4" /> Phone</span>
-                    <span className="font-medium text-[#2E86AB]">+84 90 123 4567</span>
+                    <span className="font-medium text-[#2E86AB]">{restaurant.phone || 'N/A'}</span>
                   </div>
                 </div>
               </div>
 
-              {/* Amenities */}
-              <div className="bg-white rounded-xl border border-gray-100 p-6">
-                <h3 className="font-bold text-slate-800 mb-4">Amenities</h3>
-                <div className="flex flex-wrap gap-2">
-                  {restaurant.amenities.map(am => (
-                    <span key={am} className="px-3 py-1.5 bg-gray-50 text-gray-600 rounded-full text-xs font-medium border border-gray-100">
-                      {am}
-                    </span>
-                  ))}
+              {restaurant.amenities.length > 0 && (
+                <div className="bg-white rounded-xl border border-gray-100 p-6">
+                  <h3 className="font-bold text-slate-800 mb-4">Amenities</h3>
+                  <div className="flex flex-wrap gap-2">
+                    {restaurant.amenities.map((amenity) => (
+                      <span key={amenity} className="px-3 py-1.5 bg-gray-50 text-gray-600 rounded-full text-xs font-medium border border-gray-100">
+                        {amenity}
+                      </span>
+                    ))}
+                  </div>
                 </div>
-              </div>
+              )}
             </div>
           </div>
         </div>
