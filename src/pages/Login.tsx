@@ -7,25 +7,26 @@ export const Login = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const { login } = useAuth();
   const navigate = useNavigate();
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
+    setIsSubmitting(true);
 
-    const success = login(email, password);
-    
-    if (success) {
-      // Check if admin
-      const user = JSON.parse(localStorage.getItem('currentUser') || '{}');
+    try {
+      const user = await login(email, password);
       if (user.role === 'admin') {
         navigate('/admin');
       } else {
         navigate('/');
       }
-    } else {
-      setError('Invalid email or password');
+    } catch (err: any) {
+      setError(err?.response?.data?.message || 'Invalid email or password');
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -53,7 +54,7 @@ export const Login = () => {
 
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
-                Email or Username
+                Email
               </label>
               <div className="relative">
                 <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
@@ -87,9 +88,10 @@ export const Login = () => {
 
             <button
               type="submit"
-              className="w-full bg-[#FF6B35] text-white py-3 rounded-lg font-bold hover:bg-[#e55a2b] transition-colors shadow-lg shadow-orange-200"
+              disabled={isSubmitting}
+              className="w-full bg-[#FF6B35] text-white py-3 rounded-lg font-bold hover:bg-[#e55a2b] transition-colors shadow-lg shadow-orange-200 disabled:opacity-60 disabled:cursor-not-allowed"
             >
-              Sign In
+              {isSubmitting ? 'Signing in...' : 'Sign In'}
             </button>
           </form>
 
@@ -110,11 +112,6 @@ export const Login = () => {
                 <div className="font-medium text-gray-700 mb-1">Admin Account:</div>
                 <div>Email: <code className="bg-gray-200 px-1 rounded">admin</code></div>
                 <div>Password: <code className="bg-gray-200 px-1 rounded">admin</code></div>
-              </div>
-              <div className="bg-gray-50 rounded p-2">
-                <div className="font-medium text-gray-700 mb-1">User Account:</div>
-                <div>Email: <code className="bg-gray-200 px-1 rounded">user@example.com</code></div>
-                <div>Password: <code className="bg-gray-200 px-1 rounded">user123</code></div>
               </div>
             </div>
           </div>
