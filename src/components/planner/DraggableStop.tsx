@@ -6,19 +6,30 @@ interface DraggableStopProps {
   stop: Restaurant;
   index: number;
   moveStop: (dragIndex: number, hoverIndex: number) => void;
+  syncStopOrder: () => void;
   removeStop: (id: string) => void;
   onStopClick: (stop: Restaurant) => void;
 }
 
-export const DraggableStop = ({ stop, index, moveStop, removeStop, onStopClick }: DraggableStopProps) => {
+interface DragItem {
+  index: number;
+  originalIndex: number;
+}
+
+export const DraggableStop = ({ stop, index, moveStop, syncStopOrder, removeStop, onStopClick }: DraggableStopProps) => {
   const [, ref] = useDrag({
     type: 'STOP',
-    item: { index },
+    item: { index, originalIndex: index },
+    end: (item: DragItem | undefined) => {
+      if (item && item.index !== item.originalIndex) {
+        syncStopOrder();
+      }
+    },
   });
 
   const [, drop] = useDrop({
     accept: 'STOP',
-    hover: (item: { index: number }) => {
+    hover: (item: DragItem) => {
       if (item.index !== index) {
         moveStop(item.index, index);
         item.index = index;
