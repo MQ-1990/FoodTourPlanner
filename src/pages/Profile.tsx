@@ -1,51 +1,157 @@
-import React, { useState } from 'react';
-import { Settings, Award, Map, Heart, Edit2, Check, X, Utensils, Phone, MapPin } from 'lucide-react';
+import React, { useEffect, useState } from 'react';
+import { Settings, Map, Heart, Edit2, Check, X, Phone, MapPin } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { TourCard } from '../components/TourCard';
 import { RestaurantCard } from '../components/RestaurantCard';
-import { MOCK_TOURS } from '../lib/data';
 import { useRestaurants } from '../context/RestaurantContext';
 import * as Tabs from '@radix-ui/react-tabs';
 import { toast } from 'sonner';
+import api from '../lib/api';
+
+interface ProfileUser {
+  _id: string;
+  email: string;
+  username?: string;
+  phone?: string | null;
+  avatar?: string | null;
+  taste_profile?: string[];
+  favorites?: number[];
+}
+
+interface ProfileTour {
+  id: string;
+  title: string;
+  image: string;
+  duration: string;
+  distance: string;
+  stops: number;
+  rating: number;
+  createdAt?: string;
+}
+
+const DEFAULT_AVATAR = 'https://i.pravatar.cc/150?u=a042581f4e29026024d';
+const DEFAULT_BIO = 'Foodie - Explorer - Coffee Addict';
+const DEFAULT_ADDRESS = 'District 1, Ho Chi Minh City';
 
 export const Profile = () => {
   const { restaurants: allRestaurants } = useRestaurants();
   const [isEditing, setIsEditing] = useState(false);
-  const [name, setName] = useState('Alex Nguyen');
-  const [bio, setBio] = useState('Foodie • Explorer • Coffee Addict');
-  const [tempName, setTempName] = useState(name);
-  const [tempBio, setTempBio] = useState(bio);
-  const [phone, setPhone] = useState('0909 123 456');
-  const [address, setAddress] = useState('Quận 1, TP HCM');
-  const [tempPhone, setTempPhone] = useState(phone);
-  const [tempAddress, setTempAddress] = useState(address);
-  const [avatar, setAvatar] = useState("https://i.pravatar.cc/150?u=a042581f4e29026024d");
-  const [tempAvatar, setTempAvatar] = useState(avatar);
+  const [isLoadingProfile, setIsLoadingProfile] = useState(true);
+  const [isSavingProfile, setIsSavingProfile] = useState(false);
 
-  // Preferences state
+  const [name, setName] = useState('');
+  const [email, setEmail] = useState('');
+  const [bio, setBio] = useState(DEFAULT_BIO);
+  const [phone, setPhone] = useState('');
+  const [address, setAddress] = useState(DEFAULT_ADDRESS);
+  const [avatar, setAvatar] = useState(DEFAULT_AVATAR);
+  const [favoriteIds, setFavoriteIds] = useState<number[]>([]);
+  const [myTours, setMyTours] = useState<ProfileTour[]>([]);
+
+  const [tempName, setTempName] = useState('');
+  const [tempBio, setTempBio] = useState(DEFAULT_BIO);
+  const [tempPhone, setTempPhone] = useState('');
+  const [tempAddress, setTempAddress] = useState(DEFAULT_ADDRESS);
+  const [tempAvatar, setTempAvatar] = useState(DEFAULT_AVATAR);
+
   const [selectedPreferences, setSelectedPreferences] = useState<string[]>(() => {
     const saved = localStorage.getItem('userTastePreferences');
-    return saved ? JSON.parse(saved) : ['Món cay', 'Hải sản', 'Cà phê'];
+    return saved ? JSON.parse(saved) : ['Spicy', 'Seafood', 'Coffee'];
   });
-  const [selectedPriceRange, setSelectedPriceRange] = useState('100,000 - 300,000đ');
-  const [selectedArea, setSelectedArea] = useState('Quận 1, TP HCM');
+  const [selectedPriceRange, setSelectedPriceRange] = useState('100,000 - 300,000 VND');
+  const [selectedArea, setSelectedArea] = useState(DEFAULT_ADDRESS);
+
+  const preferences = ['Spicy', 'Sweet', 'Seafood', 'Coffee', 'Milk Tea', 'Vegetarian', 'BBQ', 'Pho', 'Noodles'];
+  const priceRanges = ['< 50,000 VND', '50,000 - 100,000 VND', '100,000 - 300,000 VND', '300,000 - 500,000 VND', '> 500,000 VND'];
+
+  const normalizeTour = (tour: any): ProfileTour => {
+    const stops = Array.isArray(tour.restaurants) ? tour.restaurants.length : 0;
+    const firstRestaurant = Array.isArray(tour.restaurants)
+      ? tour.restaurants.find((item: any) => item?.restaurant)?.restaurant
+      : null;
+
+    return {
+      id: String(tour._id ?? tour.id),
+      title: tour.name || tour.title || 'Untitled Tour',
+      image: firstRestaurant?.image || 'https://images.unsplash.com/photo-1504674900247-0877df9cc836?w=800&q=60',
+      duration: tour.totalTime ? `${Math.round(tour.totalTime)} min` : `${(stops * 1.5).toFixed(1)} hours`,
+      distance: tour.totalDistance ? `${tour.totalDistance.toFixed(1)} km` : 'N/A',
+      stops,
+      rating: tour.rating || 0,
+      createdAt: tour.createdAt,
+    };
+  };
+
+  const applyProfile = (profile: ProfileUser) => {
+    const displayName = profile.username || profile.email || '';
+    const displayPhone = profile.phone || '';
+    const displayAvatar = profile.avatar || DEFAULT_AVATAR;
+    const tastes = Array.isArray(profile.taste_profile) && profile.taste_profile.length
+      ? profile.taste_profile
+      : [];
+
+    setName(displayName);
+    setEmail(profile.email || '');
+    setPhone(displayPhone);
+    setAvatar(displayAvatar);
+    setTempName(displayName);
+    setTempPhone(displayPhone);
+    setTempAvatar(displayAvatar);
+    setFavoriteIds(Array.isArray(profile.favorites) ? profile.favorites : []);
+
+    if (tastes.length) {
+      setSelectedPreferences(tastes);
+      localStorage.setItem('userTastePreferences', JSON.stringify(tastes));
+    }
+  };
+
+  useEffect(() => {
+    const fetchProfile = async () => {
+      try {
+        const [profileRes, toursRes] = await Promise.all([
+          api.get('/users/me'),
+          api.get('/tours'),
+        ]);
+        applyProfile(profileRes.data);
+        setMyTours((toursRes.data || []).map(normalizeTour));
+      } catch (err: any) {
+        console.error('Failed to load profile:', err);
+        toast.error(err?.response?.data?.message || 'Failed to load profile');
+      } finally {
+        setIsLoadingProfile(false);
+      }
+    };
+
+    fetchProfile();
+  }, []);
 
   const handleAvatarChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    const previewUrl = URL.createObjectURL(file);
-    setTempAvatar(previewUrl);
+    setTempAvatar(URL.createObjectURL(file));
   };
 
-  const handleSaveProfile = () => {
-    setName(tempName);
-    setBio(tempBio);
-    setAvatar(tempAvatar);
-    setPhone(tempPhone);
-    setAddress(tempAddress);
-    setIsEditing(false);
-    toast.success('Profile updated successfully!');
+  const handleSaveProfile = async () => {
+    setIsSavingProfile(true);
+    try {
+      const res = await api.put('/users/me', {
+        username: tempName,
+        phone: tempPhone,
+        avatar: tempAvatar,
+      });
+
+      applyProfile(res.data);
+      setBio(tempBio);
+      setAddress(tempAddress);
+      setIsEditing(false);
+      toast.success('Profile updated successfully!');
+    } catch (err: any) {
+      console.error('Failed to update profile:', err);
+      toast.error(err?.response?.data?.message || 'Failed to update profile');
+    } finally {
+      setIsSavingProfile(false);
+    }
   };
 
   const handleCancelEdit = () => {
@@ -53,18 +159,42 @@ export const Profile = () => {
     setTempBio(bio);
     setTempPhone(phone);
     setTempAddress(address);
+    setTempAvatar(avatar);
     setIsEditing(false);
   };
-  const preferences = ['Món cay', 'Món ngọt', 'Hải sản', 'Cà phê', 'Trà sữa', 'Chay', 'Đồ nướng', 'Phở', 'Bún'];
-  const priceRanges = ['< 50,000đ', '50,000 - 100,000đ', '100,000 - 300,000đ', '300,000 - 500,000đ', '> 500,000đ'];
 
   const togglePreference = (pref: string) => {
-    setSelectedPreferences(prev =>
+    setSelectedPreferences((prev) =>
       prev.includes(pref)
-        ? prev.filter(p => p !== pref)
+        ? prev.filter((p) => p !== pref)
         : [...prev, pref]
     );
   };
+
+  const handleSavePreferences = async () => {
+    try {
+      const res = await api.put('/users/me', {
+        taste_profile: selectedPreferences,
+      });
+      applyProfile(res.data);
+      toast.success('Preferences saved successfully!');
+    } catch (err: any) {
+      console.error('Failed to save preferences:', err);
+      toast.error(err?.response?.data?.message || 'Failed to save preferences');
+    }
+  };
+
+  const favoriteRestaurants = allRestaurants.filter((restaurant) =>
+    favoriteIds.includes(Number(restaurant.id))
+  );
+
+  if (isLoadingProfile) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-gray-500">Loading profile...</div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gray-50 pb-20">
@@ -75,6 +205,7 @@ export const Profile = () => {
               <div className="w-24 h-24 md:w-32 md:h-32 rounded-full bg-gray-200 p-1 border-4 border-white shadow-lg">
                 <img
                   src={isEditing ? tempAvatar : avatar}
+                  alt={name}
                   className="w-full h-full rounded-full object-cover"
                 />
               </div>
@@ -98,7 +229,6 @@ export const Profile = () => {
               )}
             </div>
 
-
             <div className="text-center md:text-left flex-1">
               {isEditing ? (
                 <div className="space-y-3 mb-4">
@@ -116,7 +246,6 @@ export const Profile = () => {
                     className="w-full px-3 py-2 border border-[#FF6B35] rounded-lg text-slate-600 outline-none"
                     placeholder="Your bio"
                   />
-                  {/* Phone */}
                   <input
                     type="text"
                     value={tempPhone}
@@ -124,8 +253,6 @@ export const Profile = () => {
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg text-slate-600 outline-none"
                     placeholder="Phone number"
                   />
-
-                  {/* Address */}
                   <input
                     type="text"
                     value={tempAddress}
@@ -136,9 +263,10 @@ export const Profile = () => {
                   <div className="flex gap-2">
                     <button
                       onClick={handleSaveProfile}
-                      className="flex items-center gap-2 px-4 py-2 bg-[#FF6B35] text-white rounded-lg hover:bg-[#e55a2b] transition-colors"
+                      disabled={isSavingProfile}
+                      className="flex items-center gap-2 px-4 py-2 bg-[#FF6B35] text-white rounded-lg hover:bg-[#e55a2b] transition-colors disabled:bg-gray-400"
                     >
-                      <Check className="w-4 h-4" /> Save
+                      <Check className="w-4 h-4" /> {isSavingProfile ? 'Saving...' : 'Save'}
                     </button>
                     <button
                       onClick={handleCancelEdit}
@@ -151,12 +279,13 @@ export const Profile = () => {
               ) : (
                 <>
                   <h1 className="text-2xl font-bold text-slate-800 mb-1">{name}</h1>
-                  <p className="text-slate-500 mb-2">{bio}</p>
+                  <p className="text-slate-500 mb-1">{bio}</p>
+                  <p className="text-slate-400 text-sm mb-2">{email}</p>
 
                   <div className="flex flex-col gap-1 text-sm text-slate-500 mb-4">
                     <div className="flex items-center justify-center md:justify-start gap-2">
                       <Phone className="w-4 h-4 text-[#FF6B35]" />
-                      <span>{phone}</span>
+                      <span>{phone || 'No phone added'}</span>
                     </div>
                     <div className="flex items-center justify-center md:justify-start gap-2">
                       <MapPin className="w-4 h-4 text-[#FF6B35]" />
@@ -170,23 +299,24 @@ export const Profile = () => {
                 <>
                   <div className="flex flex-wrap justify-center md:justify-start gap-6 text-sm mb-4">
                     <div className="text-center">
-                      <span className="block font-bold text-slate-800 text-lg">12</span>
+                      <span className="block font-bold text-slate-800 text-lg">0</span>
                       <span className="text-gray-400">Reviews</span>
                     </div>
                     <div className="text-center">
-                      <span className="block font-bold text-slate-800 text-lg">5</span>
+                      <span className="block font-bold text-slate-800 text-lg">{myTours.length}</span>
                       <span className="text-gray-400">Tours Created</span>
                     </div>
                   </div>
 
                   <div className="flex flex-wrap gap-2 justify-center md:justify-start">
-                    {selectedPreferences.slice(0, 4).map(tag => (
+                    {selectedPreferences.slice(0, 4).map((tag) => (
                       <span key={tag} className="px-3 py-1 bg-orange-50 text-[#FF6B35] rounded-full text-xs font-medium">{tag}</span>
                     ))}
                   </div>
                 </>
               )}
             </div>
+
             <div className="flex gap-2">
               {!isEditing && (
                 <button
@@ -227,21 +357,31 @@ export const Profile = () => {
 
           <Tabs.Content value="tours" className="animate-in fade-in slide-in-from-bottom-4 duration-500">
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {MOCK_TOURS.map(tour => (
+              {myTours.map((tour) => (
                 <div key={tour.id} className="h-full">
                   <TourCard tour={tour} />
                 </div>
               ))}
+              {myTours.length === 0 && (
+                <div className="col-span-full rounded-xl bg-white p-8 text-center text-gray-500">
+                  No tours created yet.
+                </div>
+              )}
             </div>
           </Tabs.Content>
 
           <Tabs.Content value="favorites" className="animate-in fade-in slide-in-from-bottom-4 duration-500">
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-              {allRestaurants.map(r => (
-                <Link key={r.id} to={`/restaurant/${r.id}`}>
-                  <RestaurantCard restaurant={r} />
+              {favoriteRestaurants.map((restaurant) => (
+                <Link key={restaurant.id} to={`/restaurant/${restaurant.id}`}>
+                  <RestaurantCard restaurant={restaurant} />
                 </Link>
               ))}
+              {favoriteRestaurants.length === 0 && (
+                <div className="col-span-full rounded-xl bg-white p-8 text-center text-gray-500">
+                  No favorite restaurants yet.
+                </div>
+              )}
             </div>
           </Tabs.Content>
 
@@ -249,13 +389,12 @@ export const Profile = () => {
             <div className="max-w-2xl bg-white rounded-xl p-8 shadow-sm">
               <h2 className="text-xl font-bold text-slate-800 mb-6">Food Preferences</h2>
 
-              {/* Taste Preferences */}
               <div className="mb-8">
                 <label className="block font-medium text-gray-700 mb-3">
-                  What do you like? (Khẩu vị yêu thích)
+                  What do you like?
                 </label>
                 <div className="flex flex-wrap gap-2">
-                  {preferences.map(pref => (
+                  {preferences.map((pref) => (
                     <button
                       key={pref}
                       onClick={() => togglePreference(pref)}
@@ -270,42 +409,36 @@ export const Profile = () => {
                 </div>
               </div>
 
-              {/* Price Range */}
               <div className="mb-8">
                 <label className="block font-medium text-gray-700 mb-3">
-                  Price Range (Ngân sách trung bình)
+                  Price Range
                 </label>
                 <select
                   value={selectedPriceRange}
                   onChange={(e) => setSelectedPriceRange(e.target.value)}
                   className="w-full px-4 py-3 border border-gray-300 rounded-lg outline-none focus:ring-2 focus:ring-[#FF6B35] focus:border-transparent"
                 >
-                  {priceRanges.map(range => (
+                  {priceRanges.map((range) => (
                     <option key={range} value={range}>{range}</option>
                   ))}
                 </select>
               </div>
 
-              {/* Preferred Area */}
               <div className="mb-8">
                 <label className="block font-medium text-gray-700 mb-3">
-                  Preferred Area (Khu vực thường xuyên)
+                  Preferred Area
                 </label>
                 <input
                   type="text"
                   value={selectedArea}
                   onChange={(e) => setSelectedArea(e.target.value)}
                   className="w-full px-4 py-3 border border-gray-300 rounded-lg outline-none focus:ring-2 focus:ring-[#FF6B35] focus:border-transparent"
-                  placeholder="e.g., Quận 1, TP HCM"
+                  placeholder="e.g., District 1, Ho Chi Minh City"
                 />
               </div>
 
-              {/* Save Button */}
               <button
-                onClick={() => {
-                  localStorage.setItem('userTastePreferences', JSON.stringify(selectedPreferences));
-                  toast.success('Preferences saved successfully!');
-                }}
+                onClick={handleSavePreferences}
                 className="w-full bg-[#FF6B35] text-white py-3 rounded-lg font-bold hover:bg-[#e55a2b] transition-colors flex items-center justify-center gap-2"
               >
                 <Check className="w-5 h-5" />
