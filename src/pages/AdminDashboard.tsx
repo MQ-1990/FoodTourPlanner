@@ -12,6 +12,14 @@ type MenuItem = {
   image?: string;
 };
 
+type AdminUser = {
+  _id: string;
+  email: string;
+  username?: string;
+  role: 'admin' | 'user';
+  createdAt?: string;
+  isLocked?: boolean;
+};
 
 export default function AdminDashboard() {
   const navigate = useNavigate();
@@ -22,6 +30,9 @@ export default function AdminDashboard() {
   const [searchQuery, setSearchQuery] = useState('');
   const [showAddDialog, setShowAddDialog] = useState(false);
   const [showProfileMenu, setShowProfileMenu] = useState(false);
+  const [adminUsers, setAdminUsers] = useState<AdminUser[]>([]);
+  const [isLoadingUsers, setIsLoadingUsers] = useState(false);
+  const [userActionId, setUserActionId] = useState<string | null>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
   // Close dropdown when clicking outside
@@ -53,9 +64,32 @@ export default function AdminDashboard() {
     navigate('/login');
   };
 
+  const fetchAdminUsers = async () => {
+    setIsLoadingUsers(true);
+    try {
+      const res = await api.get('/users');
+      setAdminUsers(res.data);
+    } catch (err: any) {
+      console.error('Failed to fetch users:', err);
+      alert(err?.response?.data?.message || 'Failed to fetch users');
+    } finally {
+      setIsLoadingUsers(false);
+    }
+  };
+
+  useEffect(() => {
+    if (activeTab === 'users') {
+      fetchAdminUsers();
+    }
+  }, [activeTab]);
+
+  useEffect(() => {
+    fetchAdminUsers();
+  }, []);
+
   // Mock admin stats
   const stats = {
-    totalUsers: 1247,
+    totalUsers: adminUsers.length,
     totalRestaurants: allRestaurants.length,
     totalReviews: 8542,
     activeTours: MOCK_TOURS.length,
@@ -300,6 +334,45 @@ export default function AdminDashboard() {
       console.error('Lỗi xoá nhà hàng:', err);
       alert(err?.response?.data?.message || 'Lỗi khi xoá. Kiểm tra console.');
     }
+  };
+
+  const handleToggleUserLock = async (targetUser: AdminUser) => {
+    const isProtected = targetUser.role === 'admin' || targetUser._id === user?.id;
+    if (isProtected) return;
+
+    setUserActionId(targetUser._id);
+    try {
+      const endpoint = targetUser.isLocked ? `/users/${targetUser._id}/unlock` : `/users/${targetUser._id}/lock`;
+      const res = await api.patch(endpoint);
+      setAdminUsers((prev) => prev.map((item) => item._id === targetUser._id ? res.data : item));
+    } catch (err: any) {
+      console.error('Failed to update user status:', err);
+      alert(err?.response?.data?.message || 'Failed to update user status');
+    } finally {
+      setUserActionId(null);
+    }
+  };
+
+  const handleDeleteUser = async (targetUser: AdminUser) => {
+    const isProtected = targetUser.role === 'admin' || targetUser._id === user?.id;
+    if (isProtected) return;
+    if (!confirm(`Delete user ${targetUser.email}?`)) return;
+
+    setUserActionId(targetUser._id);
+    try {
+      await api.delete(`/users/${targetUser._id}`);
+      setAdminUsers((prev) => prev.filter((item) => item._id !== targetUser._id));
+    } catch (err: any) {
+      console.error('Failed to delete user:', err);
+      alert(err?.response?.data?.message || 'Failed to delete user');
+    } finally {
+      setUserActionId(null);
+    }
+  };
+
+  const formatDate = (value?: string) => {
+    if (!value) return 'N/A';
+    return new Date(value).toLocaleDateString();
   };
 
   return (
@@ -586,52 +659,77 @@ export default function AdminDashboard() {
             {/* Users Tab */}
             {activeTab === 'users' && (
               <div>
-                <h2 className="text-gray-900 mb-6">User Management</h2>
+                <div className="flex items-center justify-between mb-6">
+                  <h2 className="text-gray-900">User Management</h2>
+                  <button
+                    onClick={fetchAdminUsers}
+                    disabled={isLoadingUsers}
+                    className="px-4 py-2 text-sm border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 disabled:opacity-60"
+                  >
+                    {isLoadingUsers ? 'Loading...' : 'Refresh'}
+                  </button>
+                </div>
                 <div className="overflow-x-auto">
                   <table className="w-full">
                     <thead>
                       <tr className="border-b border-gray-200">
                         <th className="text-left py-3 px-4 text-gray-700">User</th>
                         <th className="text-left py-3 px-4 text-gray-700">Email</th>
+                        <th className="text-left py-3 px-4 text-gray-700">Role</th>
                         <th className="text-left py-3 px-4 text-gray-700">Joined</th>
-                        <th className="text-left py-3 px-4 text-gray-700">Activity</th>
+                        <th className="text-left py-3 px-4 text-gray-700">Status</th>
                         <th className="text-right py-3 px-4 text-gray-700">Actions</th>
                       </tr>
                     </thead>
                     <tbody>
-                      {[
-                        { id: 1, name: 'Alex Johnson', email: 'alex@example.com', joined: '2025-01-15', tours: 5, reviews: 12 },
-                        { id: 2, name: 'Sarah Williams', email: 'sarah@example.com', joined: '2025-02-20', tours: 3, reviews: 8 },
-                        { id: 3, name: 'Mike Chen', email: 'mike@example.com', joined: '2025-03-10', tours: 7, reviews: 15 },
-                      ].map((user) => (
-                        <tr key={user.id} className="border-b border-gray-100 hover:bg-gray-50">
+                      {adminUsers.map((adminUser) => {
+                        const displayName = adminUser.username || adminUser.email;
+                        const isProtected = adminUser.role === 'admin' || adminUser._id === user?.id;
+                        const isBusy = userActionId === adminUser._id;
+
+                        return (
+                        <tr key={adminUser._id} className="border-b border-gray-100 hover:bg-gray-50">
                           <td className="py-4 px-4">
                             <div className="flex items-center gap-3">
                               <div className="w-10 h-10 bg-gradient-to-br from-[#FF6B35] to-[#FF8C61] rounded-full flex items-center justify-center text-white">
-                                {user.name.charAt(0)}
+                                {displayName.charAt(0).toUpperCase()}
                               </div>
-                              <span className="text-gray-900">{user.name}</span>
+                              <span className="text-gray-900">{displayName}</span>
                             </div>
                           </td>
-                          <td className="py-4 px-4 text-gray-600">{user.email}</td>
-                          <td className="py-4 px-4 text-gray-600">{user.joined}</td>
+                          <td className="py-4 px-4 text-gray-600">{adminUser.email}</td>
                           <td className="py-4 px-4">
-                            <div className="text-sm text-gray-600">
-                              {user.tours} tours • {user.reviews} reviews
-                            </div>
+                            <span className={`px-3 py-1 rounded-full text-xs ${adminUser.role === 'admin' ? 'bg-purple-100 text-purple-700' : 'bg-blue-100 text-blue-700'}`}>
+                              {adminUser.role}
+                            </span>
+                          </td>
+                          <td className="py-4 px-4 text-gray-600">{formatDate(adminUser.createdAt)}</td>
+                          <td className="py-4 px-4">
+                            <span className={`px-3 py-1 rounded-full text-xs ${adminUser.isLocked ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700'}`}>
+                              {adminUser.isLocked ? 'Locked' : 'Active'}
+                            </span>
                           </td>
                           <td className="py-4 px-4">
                             <div className="flex items-center justify-end gap-2">
-                              <button className="px-3 py-1 text-sm bg-green-100 text-green-700 rounded-lg hover:bg-green-200 transition-colors">
-                                Active
+                              <button
+                                onClick={() => handleToggleUserLock(adminUser)}
+                                disabled={isProtected || isBusy}
+                                className={`px-3 py-1 text-sm rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${adminUser.isLocked ? 'bg-green-100 text-green-700 hover:bg-green-200' : 'bg-red-100 text-red-700 hover:bg-red-200'}`}
+                              >
+                                {isBusy ? 'Saving...' : adminUser.isLocked ? 'Unlock' : 'Lock'}
                               </button>
-                              <button className="px-3 py-1 text-sm bg-red-100 text-red-700 rounded-lg hover:bg-red-200 transition-colors">
-                                Block
+                              <button
+                                onClick={() => handleDeleteUser(adminUser)}
+                                disabled={isProtected || isBusy}
+                                className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                                title={isProtected ? 'Admin/current user cannot be deleted' : 'Delete user'}
+                              >
+                                <Trash2 className="w-4 h-4" />
                               </button>
                             </div>
                           </td>
                         </tr>
-                      ))}
+                      )})}
                     </tbody>
                   </table>
                 </div>
