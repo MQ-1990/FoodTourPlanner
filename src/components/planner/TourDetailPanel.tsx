@@ -1,4 +1,4 @@
-import { ChevronLeft, Star, Clock, MapPin, Bookmark, Edit2, Trash2 } from 'lucide-react';
+import { ChevronLeft, Star, Clock, MapPin, Bookmark, Edit2, Trash2, Globe2, Lock } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { Restaurant } from '../../lib/data';
 import { toast } from 'sonner';
@@ -14,6 +14,7 @@ interface TourDetailPanelProps {
   loadTour: (tour: any) => void;
   handleEditMyTour: (t: any) => void;
   handleDeleteMyTour: (id: string) => void;
+  handleToggleTourPrivacy: (t: any) => void;
   removeSavedTour: (id: string) => void;
   setShowMyTours: (v: boolean) => void;
   setSelectedTour: (t: any) => void;
@@ -23,7 +24,7 @@ export const TourDetailPanel = ({
   selectedTour, myTours, savedTours, setSavedTours,
   handleBackToResults, handleRestaurantClick, getTourRestaurants,
   loadTour, handleEditMyTour, handleDeleteMyTour,
-  removeSavedTour, setShowMyTours, setSelectedTour,
+  handleToggleTourPrivacy, removeSavedTour, setShowMyTours, setSelectedTour,
 }: TourDetailPanelProps) => {
   const isMyTour = myTours.find((t) => t.id === selectedTour.id);
   const isSaved = savedTours.find((t) => t.id === selectedTour.id);
@@ -101,10 +102,10 @@ export const TourDetailPanel = ({
                   className="flex items-center justify-center gap-2 border-2 border-[#2E86AB] text-[#2E86AB] px-4 py-3 rounded-lg font-medium hover:bg-[#2E86AB] hover:text-white transition-colors">
                   View Full Details
                 </Link>
-                <button onClick={toggleSave}
-                  className={'flex items-center justify-center gap-2 px-4 py-3 rounded-lg font-medium transition-colors ' + (isSaved ? 'bg-pink-100 text-pink-600 border border-pink-200 hover:bg-pink-200' : 'bg-white text-gray-600 border border-gray-300 hover:bg-gray-50')}>
-                  <Bookmark className={'w-4 h-4 ' + (isSaved ? 'fill-current' : '')} />
-                  {isSaved ? 'Saved' : 'Save'}
+                <button onClick={() => handleToggleTourPrivacy(selectedTour)}
+                  className={'flex items-center justify-center gap-2 px-4 py-3 rounded-lg font-medium transition-colors ' + (selectedTour.isPublic ? 'bg-green-100 text-green-700 border border-green-200 hover:bg-green-200' : 'bg-white text-gray-600 border border-gray-300 hover:bg-gray-50')}>
+                  {selectedTour.isPublic ? <Globe2 className="w-4 h-4" /> : <Lock className="w-4 h-4" />}
+                  {selectedTour.isPublic ? 'Public' : 'Private'}
                 </button>
               </div>
               <button
