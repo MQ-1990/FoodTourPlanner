@@ -126,6 +126,7 @@ export interface PlannerState {
   handleToggleItinerary: () => void;
   toggleRestaurantSelection: (restaurant: Restaurant) => void;
   moveStop: (dragIndex: number, hoverIndex: number) => void;
+  syncStopOrder: () => void;
   removeStop: (id: string) => void;
   optimizeRoute: () => void;
   handleSaveTour: () => void;
