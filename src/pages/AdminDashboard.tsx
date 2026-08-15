@@ -1,8 +1,10 @@
 import { useState, useRef, useEffect, ChangeEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Users, Store, Star, TrendingUp, Search, Edit, Trash2, Check, X, Plus, BarChart3, LogOut, ChevronDown, User } from 'lucide-react';
-import { restaurants, tours } from '../data/mockData';
+import { MOCK_TOURS } from '../lib/data';
+import { useRestaurants } from '../context/RestaurantContext';
 import { useAuth } from '../context/AuthContext';
+import api from '../lib/api';
 
 type MenuItem = {
   name: string;
@@ -10,14 +12,27 @@ type MenuItem = {
   image?: string;
 };
 
+type AdminUser = {
+  _id: string;
+  email: string;
+  username?: string;
+  role: 'admin' | 'user';
+  createdAt?: string;
+  isLocked?: boolean;
+};
 
 export default function AdminDashboard() {
   const navigate = useNavigate();
   const { logout, user } = useAuth();
+  const { restaurants: allRestaurants, refetch } = useRestaurants();
+  const [isSaving, setIsSaving] = useState(false);
   const [activeTab, setActiveTab] = useState<'overview' | 'restaurants' | 'users'>('overview');
   const [searchQuery, setSearchQuery] = useState('');
   const [showAddDialog, setShowAddDialog] = useState(false);
   const [showProfileMenu, setShowProfileMenu] = useState(false);
+  const [adminUsers, setAdminUsers] = useState<AdminUser[]>([]);
+  const [isLoadingUsers, setIsLoadingUsers] = useState(false);
+  const [userActionId, setUserActionId] = useState<string | null>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
   // Close dropdown when clicking outside
@@ -49,17 +64,51 @@ export default function AdminDashboard() {
     navigate('/login');
   };
 
+  const fetchAdminUsers = async () => {
+    setIsLoadingUsers(true);
+    try {
+      const res = await api.get('/users');
+      setAdminUsers(res.data);
+    } catch (err: any) {
+      console.error('Failed to fetch users:', err);
+      alert(err?.response?.data?.message || 'Failed to fetch users');
+    } finally {
+      setIsLoadingUsers(false);
+    }
+  };
+
+  useEffect(() => {
+    if (activeTab === 'users') {
+      fetchAdminUsers();
+    }
+  }, [activeTab]);
+
+  useEffect(() => {
+    fetchAdminUsers();
+  }, []);
+
   // Mock admin stats
   const stats = {
-    totalUsers: 1247,
-    totalRestaurants: restaurants.length,
+    totalUsers: adminUsers.length,
+    totalRestaurants: allRestaurants.length,
     totalReviews: 8542,
-    activeTours: tours.length,
+    activeTours: MOCK_TOURS.length,
     newUsersThisWeek: 124,
     newReviewsThisWeek: 342
   };
 
-  const [restaurantList, setRestaurantList] = useState(restaurants);
+  // Derive display list directly from context (always in sync after refetch)
+  const restaurantList = allRestaurants.map(r => ({
+    ...r,
+    cuisine: r.tags,
+    district: r.district || r.address.split(',').pop()?.trim() || 'N/A',
+    reviews: r.reviewCount,
+    isOpen: r.openNow,
+    openingTime: r.openingTime || '',
+    closingTime: r.closingTime || '',
+    amenities: r.amenities || [],
+    menu: r.dishes.map(d => ({ name: d.name, price: d.price, image: d.image })),
+  }));
 
   // Form state for Add Restaurant
   const [newName, setNewName] = useState('');
@@ -69,7 +118,10 @@ export default function AdminDashboard() {
   const [newDescription, setNewDescription] = useState('');
   const [newImageUrl, setNewImageUrl] = useState('');
   const [newDistrict, setNewDistrict] = useState('');
+  const [newAmenities, setNewAmenities] = useState(''); // comma-separated
   const [editingRestaurant, setEditingRestaurant] = useState<any | null>(null);
+  const [showRestaurantImageOptions, setShowRestaurantImageOptions] = useState(false);
+  const [activeDishImageOptions, setActiveDishImageOptions] = useState<number | null>(null);
 
   const [menuItems, setMenuItems] = useState<MenuItem[]>([
     { name: '', price: '', image: '' },
@@ -86,7 +138,10 @@ export default function AdminDashboard() {
     setNewDescription('');
     setNewImageUrl('');
     setNewDistrict('');
+    setNewAmenities('');
     setMenuItems([{ name: '', price: '', image: '' }]);
+    setShowRestaurantImageOptions(false);
+    setActiveDishImageOptions(null);
 
     setShowAddDialog(true);
   };
@@ -102,6 +157,7 @@ export default function AdminDashboard() {
     setNewDescription(restaurant.description || '');
     setNewImageUrl(restaurant.image || '');
     setNewDistrict(restaurant.district || '');
+    setNewAmenities(Array.isArray(restaurant.amenities) ? restaurant.amenities.join(', ') : '');
 
     setMenuItems(
       restaurant.menu && restaurant.menu.length
@@ -114,12 +170,14 @@ export default function AdminDashboard() {
     );
 
     setShowAddDialog(true);
+    setShowRestaurantImageOptions(false);
+    setActiveDishImageOptions(null);
   };
 
 
   const handleMenuItemChange = (
     index: number,
-    field: 'name' | 'price',
+    field: 'name' | 'price' | 'image',
     value: string
   ) => {
     setMenuItems((prev) => {
@@ -137,28 +195,71 @@ export default function AdminDashboard() {
     setMenuItems((prev) => prev.filter((_, i) => i !== index));
   };
 
-  const handleImageChange = (e: ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    const previewUrl = URL.createObjectURL(file);
-    setNewImageUrl(previewUrl);
+  const uploadImageFile = async (file: File): Promise<string> => {
+    const formData = new FormData();
+    formData.append('image', file);
+    try {
+      const res = await api.post('/upload/local', formData, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+      });
+      return res.data.imageUrl; // permanent URL
+    } catch (err) {
+      console.error('Upload failed:', err);
+      return ''; // fallback
+    }
   };
 
-  const handleMenuItemImageChange = (index: number, e: ChangeEvent<HTMLInputElement>) => {
+  const handleImageChange = async (e: ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    const preview = URL.createObjectURL(file);
+    // Show preview immediately
+    setNewImageUrl(URL.createObjectURL(file));
+    // Upload and replace with permanent URL
+    const permanentUrl = await uploadImageFile(file);
+    if (permanentUrl) setNewImageUrl(permanentUrl);
+  };
 
+  const handleMenuItemImageChange = async (index: number, e: ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    // Show preview immediately
+    const preview = URL.createObjectURL(file);
     setMenuItems((prev) => {
       const copy = [...prev];
       copy[index].image = preview;
       return copy;
     });
+
+    // Upload and replace with permanent URL
+    const permanentUrl = await uploadImageFile(file);
+    if (permanentUrl) {
+      setMenuItems((prev) => {
+        const copy = [...prev];
+        copy[index].image = permanentUrl;
+        return copy;
+      });
+    }
   };
 
-  const handleSaveRestaurant = () => {
+  const resetForm = () => {
+    setShowAddDialog(false);
+    setEditingRestaurant(null);
+    setNewName('');
+    setNewAddress('');
+    setNewOpeningTime('');
+    setNewClosingTime('');
+    setNewDescription('');
+    setNewImageUrl('');
+    setNewDistrict('');
+    setNewAmenities('');
+    setMenuItems([{ name: '', price: '' }]);
+    setShowRestaurantImageOptions(false);
+    setActiveDishImageOptions(null);
+  };
+
+  const handleSaveRestaurant = async () => {
     if (!newName.trim()) {
       alert('Please enter restaurant name');
       return;
@@ -168,58 +269,55 @@ export default function AdminDashboard() {
       (item) => item.name.trim() && item.price.trim()
     );
 
-    if (editingRestaurant) {
-      // MODE EDIT: cập nhật nhà hàng
-      setRestaurantList((prev) =>
-        prev.map((r) =>
-          r.id === editingRestaurant.id
-            ? {
-              ...r,
-              name: newName,
-              address: newAddress,
-              district: newDistrict || r.district,
-              image: newImageUrl || r.image,
-              openingTime: newOpeningTime,
-              closingTime: newClosingTime,
-              description: newDescription,
-              menu: cleanedMenu,
-            }
-            : r
-        )
-      );
-    } else {
-      // MODE ADD: thêm mới
-      const newRestaurant: any = {
-        id: Date.now().toString(),
-        name: newName,
-        address: newAddress,
-        district: newDistrict || 'Quận 1',
-        image: newImageUrl || 'https://via.placeholder.com/150',
-        cuisine: ['Vietnamese'],
-        rating: 0,
-        reviews: 0,
-        isOpen: true,
-        openingTime: newOpeningTime,
-        closingTime: newClosingTime,
-        description: newDescription,
-        menu: cleanedMenu,
-      };
+    const amenitiesParsed = newAmenities ? newAmenities.split(',').map(a => a.trim()).filter(Boolean) : [];
 
-      setRestaurantList((prev) => [newRestaurant, ...prev]);
+    setIsSaving(true);
+    try {
+      if (editingRestaurant) {
+        // MODE EDIT: gọi PUT /api/restaurants/:id
+        // Preserve existing fields that the form doesn't edit
+        const editPayload = {
+          name: newName,
+          address: newAddress,
+          district: newDistrict || editingRestaurant.district || 'Quận 1',
+          image: newImageUrl || editingRestaurant.image || '',
+          openingTime: newOpeningTime,
+          closingTime: newClosingTime,
+          description: newDescription,
+          amenities: amenitiesParsed.length > 0 ? amenitiesParsed : (editingRestaurant.amenities || []),
+          dishes: cleanedMenu.length > 0 ? cleanedMenu : (editingRestaurant.dishes || []),
+          // Preserve fields not in the form
+          tags: editingRestaurant.tags || editingRestaurant.cuisine || [],
+          priceRange: editingRestaurant.priceRange || '$$',
+          phone: editingRestaurant.phone || '',
+          lat: editingRestaurant.lat || null,
+          lng: editingRestaurant.lng || null,
+          reviews: editingRestaurant.reviews || [],
+        };
+        await api.put(`/restaurants/${editingRestaurant.id}`, editPayload);
+      } else {
+        // MODE ADD: gọi POST /api/restaurants
+        const addPayload = {
+          name: newName,
+          address: newAddress,
+          district: newDistrict || 'Quận 1',
+          image: newImageUrl || '',
+          openingTime: newOpeningTime,
+          closingTime: newClosingTime,
+          description: newDescription,
+          amenities: amenitiesParsed,
+          dishes: cleanedMenu,
+        };
+        await api.post('/restaurants', addPayload);
+      }
+      await refetch(); // reload data từ backend vào context
+      resetForm();
+    } catch (err: any) {
+      console.error('Lỗi lưu nhà hàng:', err);
+      alert(err?.response?.data?.message || 'Lỗi khi lưu. Kiểm tra console.');
+    } finally {
+      setIsSaving(false);
     }
-
-    // đóng modal + reset
-    setShowAddDialog(false);
-    setEditingRestaurant(null);
-
-    setNewName('');
-    setNewAddress('');
-    setNewOpeningTime('');
-    setNewClosingTime('');
-    setNewDescription('');
-    setNewImageUrl('');
-    setNewDistrict('');
-    setMenuItems([{ name: '', price: '' }]);
   };
 
 
@@ -227,10 +325,54 @@ export default function AdminDashboard() {
     searchQuery === '' || r.name.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
-  const handleDeleteRestaurant = (id: string) => {
-    if (confirm('Are you sure you want to delete this restaurant?')) {
-      setRestaurantList(prev => prev.filter(r => r.id !== id));
+  const handleDeleteRestaurant = async (id: string) => {
+    if (!confirm('Are you sure you want to delete this restaurant?')) return;
+    try {
+      await api.delete(`/restaurants/${id}`);
+      await refetch();
+    } catch (err: any) {
+      console.error('Lỗi xoá nhà hàng:', err);
+      alert(err?.response?.data?.message || 'Lỗi khi xoá. Kiểm tra console.');
     }
+  };
+
+  const handleToggleUserLock = async (targetUser: AdminUser) => {
+    const isProtected = targetUser.role === 'admin' || targetUser._id === user?.id;
+    if (isProtected) return;
+
+    setUserActionId(targetUser._id);
+    try {
+      const endpoint = targetUser.isLocked ? `/users/${targetUser._id}/unlock` : `/users/${targetUser._id}/lock`;
+      const res = await api.patch(endpoint);
+      setAdminUsers((prev) => prev.map((item) => item._id === targetUser._id ? res.data : item));
+    } catch (err: any) {
+      console.error('Failed to update user status:', err);
+      alert(err?.response?.data?.message || 'Failed to update user status');
+    } finally {
+      setUserActionId(null);
+    }
+  };
+
+  const handleDeleteUser = async (targetUser: AdminUser) => {
+    const isProtected = targetUser.role === 'admin' || targetUser._id === user?.id;
+    if (isProtected) return;
+    if (!confirm(`Delete user ${targetUser.email}?`)) return;
+
+    setUserActionId(targetUser._id);
+    try {
+      await api.delete(`/users/${targetUser._id}`);
+      setAdminUsers((prev) => prev.filter((item) => item._id !== targetUser._id));
+    } catch (err: any) {
+      console.error('Failed to delete user:', err);
+      alert(err?.response?.data?.message || 'Failed to delete user');
+    } finally {
+      setUserActionId(null);
+    }
+  };
+
+  const formatDate = (value?: string) => {
+    if (!value) return 'N/A';
+    return new Date(value).toLocaleDateString();
   };
 
   return (
@@ -400,7 +542,7 @@ export default function AdminDashboard() {
                 <div>
                   <h2 className="text-gray-900 mb-4">Most Popular Restaurants</h2>
                   <div className="space-y-3">
-                    {restaurants.slice(0, 5).map((restaurant, idx) => (
+                    {allRestaurants.slice(0, 5).map((restaurant, idx) => (
                       <div key={restaurant.id} className="flex items-center gap-4 p-4 bg-gray-50 rounded-lg">
                         <div className="text-2xl text-gray-400 w-8">#{idx + 1}</div>
                         <div className="w-16 h-16 rounded-lg overflow-hidden">
@@ -412,7 +554,7 @@ export default function AdminDashboard() {
                             <Star className="w-4 h-4 text-yellow-500 fill-current" />
                             <span>{restaurant.rating}</span>
                             <span>•</span>
-                            <span>{restaurant.reviews} reviews</span>
+                            <span>{restaurant.reviewCount} reviews</span>
                           </div>
                         </div>
                       </div>
@@ -517,52 +659,77 @@ export default function AdminDashboard() {
             {/* Users Tab */}
             {activeTab === 'users' && (
               <div>
-                <h2 className="text-gray-900 mb-6">User Management</h2>
+                <div className="flex items-center justify-between mb-6">
+                  <h2 className="text-gray-900">User Management</h2>
+                  <button
+                    onClick={fetchAdminUsers}
+                    disabled={isLoadingUsers}
+                    className="px-4 py-2 text-sm border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 disabled:opacity-60"
+                  >
+                    {isLoadingUsers ? 'Loading...' : 'Refresh'}
+                  </button>
+                </div>
                 <div className="overflow-x-auto">
                   <table className="w-full">
                     <thead>
                       <tr className="border-b border-gray-200">
                         <th className="text-left py-3 px-4 text-gray-700">User</th>
                         <th className="text-left py-3 px-4 text-gray-700">Email</th>
+                        <th className="text-left py-3 px-4 text-gray-700">Role</th>
                         <th className="text-left py-3 px-4 text-gray-700">Joined</th>
-                        <th className="text-left py-3 px-4 text-gray-700">Activity</th>
+                        <th className="text-left py-3 px-4 text-gray-700">Status</th>
                         <th className="text-right py-3 px-4 text-gray-700">Actions</th>
                       </tr>
                     </thead>
                     <tbody>
-                      {[
-                        { id: 1, name: 'Alex Johnson', email: 'alex@example.com', joined: '2025-01-15', tours: 5, reviews: 12 },
-                        { id: 2, name: 'Sarah Williams', email: 'sarah@example.com', joined: '2025-02-20', tours: 3, reviews: 8 },
-                        { id: 3, name: 'Mike Chen', email: 'mike@example.com', joined: '2025-03-10', tours: 7, reviews: 15 },
-                      ].map((user) => (
-                        <tr key={user.id} className="border-b border-gray-100 hover:bg-gray-50">
+                      {adminUsers.map((adminUser) => {
+                        const displayName = adminUser.username || adminUser.email;
+                        const isProtected = adminUser.role === 'admin' || adminUser._id === user?.id;
+                        const isBusy = userActionId === adminUser._id;
+
+                        return (
+                        <tr key={adminUser._id} className="border-b border-gray-100 hover:bg-gray-50">
                           <td className="py-4 px-4">
                             <div className="flex items-center gap-3">
                               <div className="w-10 h-10 bg-gradient-to-br from-[#FF6B35] to-[#FF8C61] rounded-full flex items-center justify-center text-white">
-                                {user.name.charAt(0)}
+                                {displayName.charAt(0).toUpperCase()}
                               </div>
-                              <span className="text-gray-900">{user.name}</span>
+                              <span className="text-gray-900">{displayName}</span>
                             </div>
                           </td>
-                          <td className="py-4 px-4 text-gray-600">{user.email}</td>
-                          <td className="py-4 px-4 text-gray-600">{user.joined}</td>
+                          <td className="py-4 px-4 text-gray-600">{adminUser.email}</td>
                           <td className="py-4 px-4">
-                            <div className="text-sm text-gray-600">
-                              {user.tours} tours • {user.reviews} reviews
-                            </div>
+                            <span className={`px-3 py-1 rounded-full text-xs ${adminUser.role === 'admin' ? 'bg-purple-100 text-purple-700' : 'bg-blue-100 text-blue-700'}`}>
+                              {adminUser.role}
+                            </span>
+                          </td>
+                          <td className="py-4 px-4 text-gray-600">{formatDate(adminUser.createdAt)}</td>
+                          <td className="py-4 px-4">
+                            <span className={`px-3 py-1 rounded-full text-xs ${adminUser.isLocked ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700'}`}>
+                              {adminUser.isLocked ? 'Locked' : 'Active'}
+                            </span>
                           </td>
                           <td className="py-4 px-4">
                             <div className="flex items-center justify-end gap-2">
-                              <button className="px-3 py-1 text-sm bg-green-100 text-green-700 rounded-lg hover:bg-green-200 transition-colors">
-                                Active
+                              <button
+                                onClick={() => handleToggleUserLock(adminUser)}
+                                disabled={isProtected || isBusy}
+                                className={`px-3 py-1 text-sm rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${adminUser.isLocked ? 'bg-green-100 text-green-700 hover:bg-green-200' : 'bg-red-100 text-red-700 hover:bg-red-200'}`}
+                              >
+                                {isBusy ? 'Saving...' : adminUser.isLocked ? 'Unlock' : 'Lock'}
                               </button>
-                              <button className="px-3 py-1 text-sm bg-red-100 text-red-700 rounded-lg hover:bg-red-200 transition-colors">
-                                Block
+                              <button
+                                onClick={() => handleDeleteUser(adminUser)}
+                                disabled={isProtected || isBusy}
+                                className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                                title={isProtected ? 'Admin/current user cannot be deleted' : 'Delete user'}
+                              >
+                                <Trash2 className="w-4 h-4" />
                               </button>
                             </div>
                           </td>
                         </tr>
-                      ))}
+                      )})}
                     </tbody>
                   </table>
                 </div>
@@ -619,41 +786,70 @@ export default function AdminDashboard() {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-3">
                 <div>
                   <label className="block text-gray-700 mb-1 text-sm">Restaurant Image</label>
-                  <div className="flex items-center gap-3">
-                    <div className="w-16 h-16 rounded-lg overflow-hidden bg-gray-100 flex items-center justify-center">
+                  <div className="relative inline-block">
+                    <button
+                      type="button"
+                      onClick={() => setShowRestaurantImageOptions((value) => !value)}
+                      className="w-16 h-16 rounded-lg overflow-hidden bg-gray-100 flex items-center justify-center border hover:ring-2 hover:ring-[#FF6B35] transition"
+                    >
                       {newImageUrl ? (
                         <img src={newImageUrl} alt="Preview" className="w-full h-full object-cover" />
                       ) : (
                         <span className="text-[10px] text-gray-400 text-center px-2">No image</span>
                       )}
-                    </div>
-                    <div>
+                    </button>
+
+                    {showRestaurantImageOptions && (
+                      <div className="absolute left-20 top-0 z-20 w-72 rounded-lg border border-gray-200 bg-white p-3 shadow-lg">
                       <label
                         htmlFor="restaurantImage"
-                        className="inline-flex items-center justify-center px-3 py-1.5 border border-gray-300 rounded-lg text-xs text-gray-700 cursor-pointer hover:bg-gray-50 whitespace-nowrap"
+                          className="inline-flex w-full items-center justify-center px-3 py-2 border border-gray-300 rounded-lg text-xs text-gray-700 cursor-pointer hover:bg-gray-50"
                       >
-                        Choose image
+                          Upload image
                       </label>
                       <input
                         id="restaurantImage"
                         type="file"
                         accept="image/*"
                         className="hidden"
-                        onChange={handleImageChange}
+                          onChange={(e) => {
+                            handleImageChange(e);
+                            setShowRestaurantImageOptions(false);
+                          }}
                       />
-                    </div>
+                        <input
+                          type="url"
+                          className="mt-2 w-full px-3 py-2 border border-gray-300 rounded-lg outline-none focus:ring-2 focus:ring-[#FF6B35] text-sm"
+                          placeholder="Paste image URL"
+                          value={newImageUrl}
+                          onChange={(e) => setNewImageUrl(e.target.value)}
+                        />
+                      </div>
+                    )}
                   </div>
                 </div>
 
-                <div>
-                  <label className="block text-gray-700 mb-1 text-sm">District</label>
-                  <input
-                    type="text"
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg outline-none focus:ring-2 focus:ring-[#FF6B35] text-sm"
-                    placeholder="Quận 1"
-                    value={newDistrict}
-                    onChange={(e) => setNewDistrict(e.target.value)}
-                  />
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-3">
+                  <div>
+                    <label className="block text-gray-700 mb-1 text-sm">District</label>
+                    <input
+                      type="text"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg outline-none focus:ring-2 focus:ring-[#FF6B35] text-sm"
+                      placeholder="Quận 1"
+                      value={newDistrict}
+                      onChange={(e) => setNewDistrict(e.target.value)}
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-gray-700 mb-1 text-sm">Amenities (comma separated)</label>
+                    <input
+                      type="text"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg outline-none focus:ring-2 focus:ring-[#FF6B35] text-sm"
+                      placeholder="Wifi, Parking, ..."
+                      value={newAmenities}
+                      onChange={(e) => setNewAmenities(e.target.value)}
+                    />
+                  </div>
                 </div>
               </div>
 
@@ -702,8 +898,12 @@ export default function AdminDashboard() {
                       className="flex flex-col md:flex-row items-center gap-3 p-3 border border-gray-200 rounded-lg"
                     >
                       {/* Image + button */}
-                      <div className="flex items-center gap-3 w-full md:w-auto">
-                        <div className="w-16 h-16 rounded-lg overflow-hidden bg-gray-100 flex items-center justify-center border shrink-0">
+                      <div className="relative w-full md:w-auto">
+                        <button
+                          type="button"
+                          onClick={() => setActiveDishImageOptions(activeDishImageOptions === index ? null : index)}
+                          className="w-16 h-16 rounded-lg overflow-hidden bg-gray-100 flex items-center justify-center border shrink-0 hover:ring-2 hover:ring-[#FF6B35] transition"
+                        >
                           {item.image ? (
                             <img
                               src={item.image}
@@ -715,23 +915,37 @@ export default function AdminDashboard() {
                               No image
                             </span>
                           )}
-                        </div>
+                        </button>
 
-                        <div>
+                        {activeDishImageOptions === index && (
+                          <div className="absolute left-20 top-0 z-20 w-72 rounded-lg border border-gray-200 bg-white p-3 shadow-lg">
                           <label
                             htmlFor={`dishImage-${index}`}
-                            className="inline-flex items-center justify-center px-3 py-1.5 border border-gray-300 rounded-lg text-xs text-gray-700 cursor-pointer hover:bg-gray-50 whitespace-nowrap"
+                              className="inline-flex w-full items-center justify-center px-3 py-2 border border-gray-300 rounded-lg text-xs text-gray-700 cursor-pointer hover:bg-gray-50"
                           >
-                            Choose image
+                              Upload image
                           </label>
                           <input
                             id={`dishImage-${index}`}
                             type="file"
                             accept="image/*"
                             className="hidden"
-                            onChange={(e) => handleMenuItemImageChange(index, e)}
+                              onChange={(e) => {
+                                handleMenuItemImageChange(index, e);
+                                setActiveDishImageOptions(null);
+                              }}
                           />
-                        </div>
+                            <input
+                              type="url"
+                              placeholder="Paste image URL"
+                              value={item.image || ''}
+                              onChange={(e) =>
+                                handleMenuItemChange(index, 'image', e.target.value)
+                              }
+                              className="mt-2 w-full px-3 py-2 border border-gray-300 rounded-lg outline-none focus:ring-2 focus:ring-[#FF6B35] text-sm"
+                            />
+                          </div>
+                        )}
                       </div>
 
                       {/* Dish name */}
@@ -748,7 +962,7 @@ export default function AdminDashboard() {
                       {/* Price */}
                       <input
                         type="text"
-                        placeholder="Price (USD)"
+                        placeholder="Price (VNĐ)"
                         value={item.price}
                         onChange={(e) =>
                           handleMenuItemChange(index, 'price', e.target.value)
@@ -783,9 +997,10 @@ export default function AdminDashboard() {
             <div className="border-t px-6 py-4 flex gap-3">
               <button
                 onClick={handleSaveRestaurant}
-                className="flex-1 bg-[#FF6B35] text-white py-2.5 rounded-lg hover:bg-[#FF5722] transition-colors text-sm"
+                disabled={isSaving}
+                className={`flex-1 py-2.5 rounded-lg transition-colors text-sm ${isSaving ? 'bg-gray-400 text-white cursor-not-allowed' : 'bg-[#FF6B35] text-white hover:bg-[#FF5722]'}`}
               >
-                {editingRestaurant ? 'Save Changes' : 'Add Restaurant'}
+                {isSaving ? 'Saving...' : (editingRestaurant ? 'Save Changes' : 'Add Restaurant')}
               </button>
               <button
                 onClick={() => setShowAddDialog(false)}

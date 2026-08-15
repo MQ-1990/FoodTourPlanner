@@ -5,7 +5,8 @@ import { motion } from 'motion/react';
 import Slider from 'react-slick';
 import { RestaurantCard } from '../components/RestaurantCard';
 import { TourCard } from '../components/TourCard';
-import { MOCK_RESTAURANTS, MOCK_TOURS } from '../lib/data';
+import { MOCK_TOURS } from '../lib/data';
+import { useRestaurants } from '../context/RestaurantContext';
 
 const SlickStyles = () => (
   <style>{`
@@ -108,6 +109,42 @@ export const Home = () => {
       },
     ],
   };
+
+  // Recommendation Algorithm
+  const { restaurants: allRestaurants } = useRestaurants();
+  const [recommendedRestaurants, setRecommendedRestaurants] = useState(allRestaurants);
+
+  React.useEffect(() => {
+    if (allRestaurants.length === 0) return;
+
+    const savedPrefs = localStorage.getItem('userTastePreferences');
+    if (savedPrefs) {
+      const prefs: string[] = JSON.parse(savedPrefs);
+      // Score and sort restaurants
+      const scored = allRestaurants.map(r => {
+        let score = 0;
+        prefs.forEach(pref => {
+          if (r.tags.includes(pref) || r.amenities.includes(pref)) score += 2;
+          // Simple text matching for descriptions or names
+          if (r.description.toLowerCase().includes(pref.toLowerCase())) score += 1;
+        });
+        return { ...r, score };
+      }).sort((a, b) => b.score - a.score); // Sort by highest score
+
+      // Only set if we actually have preferences to ensure we show the most relevant ones
+      if (prefs.length > 0) {
+        setRecommendedRestaurants(scored.map(s => {
+          // Remove the temporary score property to match Restaurant type
+          const { score, ...rest } = s;
+          return rest;
+        }));
+      } else {
+        setRecommendedRestaurants(allRestaurants);
+      }
+    } else {
+      setRecommendedRestaurants(allRestaurants);
+    }
+  }, [allRestaurants]);
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
@@ -411,10 +448,10 @@ export const Home = () => {
 
         <div className="-mx-2">
           <Slider {...settings}>
-            {MOCK_RESTAURANTS.map((restaurant) => (
+            {recommendedRestaurants.slice(0, 5).map((restaurant) => (
               <div key={restaurant.id} className="px-2 h-full py-2">
                 <Link to={`/restaurant/${restaurant.id}`}>
-                  <RestaurantCard restaurant={restaurant} />
+                  <RestaurantCard restaurant={restaurant as any} />
                 </Link>
               </div>
             ))}

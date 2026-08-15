@@ -3,6 +3,7 @@ import { testBackend } from './api';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { Toaster } from 'sonner';
 import { AuthProvider, useAuth } from './context/AuthContext';
+import { RestaurantProvider } from './context/RestaurantContext';
 import { Layout } from './components/Layout';
 import { Home } from './pages/Home';
 import { RestaurantDetail } from './pages/RestaurantDetail';
@@ -13,21 +14,31 @@ import { Login } from './pages/Login';
 import { Signup } from './pages/Signup';
 import AdminDashboard from './pages/AdminDashboard';
 
+const AuthLoading = () => (
+  <div className="min-h-screen flex items-center justify-center bg-white text-slate-600">
+    Loading...
+  </div>
+);
+
 // Protected Route Components
 const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, isLoading } = useAuth();
+  if (isLoading) return <AuthLoading />;
   return isAuthenticated ? <>{children}</> : <Navigate to="/login" />;
 };
 
 const AdminRoute = ({ children }: { children: React.ReactNode }) => {
-  const { user, isAuthenticated } = useAuth();
+  const { user, isAuthenticated, isLoading } = useAuth();
+  if (isLoading) return <AuthLoading />;
   if (!isAuthenticated) return <Navigate to="/login" />;
   if (user?.role !== 'admin') return <Navigate to="/" />;
   return <>{children}</>;
 };
 
 const AppRoutes = () => {
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, isLoading } = useAuth();
+
+  if (isLoading) return <AuthLoading />;
 
   return (
     <Routes>
@@ -82,8 +93,10 @@ const App = () => {
   return (
     <BrowserRouter>
       <AuthProvider>
-        <AppRoutes />
-        <Toaster position="top-right" richColors />
+        <RestaurantProvider>
+          <AppRoutes />
+          <Toaster position="top-right" richColors />
+        </RestaurantProvider>
       </AuthProvider>
     </BrowserRouter>
   );

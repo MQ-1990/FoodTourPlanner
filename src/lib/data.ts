@@ -17,21 +17,27 @@ export interface Dish {
 }
 
 export interface Restaurant {
-  id: string;
+  id: string | number;
   name: string;
   rating: number;
   reviewCount: number;
   priceRange: string;
+  budget?: number;
   address: string;
+  district?: string;
   tags: string[];
   image: string;
-  lat: number; // percent X for mock map
-  lng: number; // percent Y for mock map
-  openNow: boolean;
+  lat: number;
+  lng: number;
+  openNow?: boolean;
+  openingTime?: string;
+  closingTime?: string;
   description: string;
   dishes: Dish[];
   reviews: Review[];
   amenities: string[];
+  phone?: string;
+  _id?: string;
 }
 
 export interface Tour {
@@ -54,8 +60,8 @@ export const MOCK_RESTAURANTS: Restaurant[] = [
     address: "260C Pasteur, District 3, HCMC",
     tags: ["Vietnamese", "Phở", "Breakfast"],
     image: "https://images.unsplash.com/photo-1582878826629-29b7ad1cdc43?auto=format&fit=crop&w=800&q=80",
-    lat: 40,
-    lng: 30,
+    lat: 10.7909,
+    lng: 106.6896,
     openNow: true,
     description: "Famous pho spot serving traditional southern style pho with generous portions of meat and fresh herbs.",
     amenities: ["Wifi", "Air Conditioning", "Parking"],
@@ -76,8 +82,8 @@ export const MOCK_RESTAURANTS: Restaurant[] = [
     address: "26 Le Thi Rieng, District 1, HCMC",
     tags: ["Bánh Mì", "Street Food", "Quick Bite"],
     image: "https://images.unsplash.com/photo-1553909489-cd47e0907980?auto=format&fit=crop&w=800&q=80",
-    lat: 55,
-    lng: 45,
+    lat: 10.7712,
+    lng: 106.6917,
     openNow: true,
     description: "The most famous Bánh Mì in Saigon. Known for being packed with meat and pâté.",
     amenities: ["Takeout Only"],
@@ -95,8 +101,8 @@ export const MOCK_RESTAURANTS: Restaurant[] = [
     address: "38 Nguyen U Di, District 2, HCMC",
     tags: ["Fine Dining", "River View", "Fusion"],
     image: "https://images.unsplash.com/photo-1514362545857-3bc16c4c7d1b?auto=format&fit=crop&w=800&q=80",
-    lat: 70,
-    lng: 20,
+    lat: 10.8037,
+    lng: 106.7377,
     openNow: false,
     description: "Elegant riverside dining with a stunning sunset view and asian-fusion cuisine.",
     amenities: ["Wifi", "Valet Parking", "Bar"],
@@ -114,8 +120,8 @@ export const MOCK_RESTAURANTS: Restaurant[] = [
     address: "158 Pasteur, District 1, HCMC",
     tags: ["Vietnamese", "Rooftop", "Cozy"],
     image: "https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?auto=format&fit=crop&w=800&q=80",
-    lat: 42,
-    lng: 35,
+    lat: 10.7780,
+    lng: 106.7001,
     openNow: true,
     description: "Authentic home-cooked style Vietnamese food served on a charming rooftop lantern-lit terrace.",
     amenities: ["Wifi", "Rooftop"],
@@ -133,8 +139,8 @@ export const MOCK_RESTAURANTS: Restaurant[] = [
     address: "8 Thu Khoa Huan, District 1, HCMC",
     tags: ["Italian", "Pizza", "Cheese"],
     image: "https://images.unsplash.com/photo-1574129645730-0968ac20c512?auto=format&fit=crop&w=800&q=80",
-    lat: 48,
-    lng: 42,
+    lat: 10.7735,
+    lng: 106.6976,
     openNow: true,
     description: "Japanese-Italian fusion pizza famous for their house-made cheeses.",
     amenities: ["Wifi", "AC", "Reservations Recommended"],
@@ -152,8 +158,8 @@ export const MOCK_RESTAURANTS: Restaurant[] = [
     address: "10 Dang Tat, District 1, HCMC",
     tags: ["Vietnamese", "Vintage", "Family"],
     image: "https://images.unsplash.com/photo-1559339352-11d035aa65de?auto=format&fit=crop&w=800&q=80",
-    lat: 30,
-    lng: 60,
+    lat: 10.7915,
+    lng: 106.6908,
     openNow: true,
     description: "A rustic villa serving traditional Vietnamese countryside dishes.",
     amenities: ["Wifi", "Garden"],

@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { UtensilsCrossed, Mail, Lock, User, AlertCircle, CheckCircle } from 'lucide-react';
+import api from '../lib/api';
 
 export const Signup = () => {
   const [name, setName] = useState('');
@@ -9,9 +10,10 @@ export const Signup = () => {
   const [confirmPassword, setConfirmPassword] = useState('');
   const [error, setError] = useState('');
   const [success, setSuccess] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const navigate = useNavigate();
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
 
@@ -25,11 +27,24 @@ export const Signup = () => {
       return;
     }
 
-    // Simulate signup success
-    setSuccess(true);
-    setTimeout(() => {
-      navigate('/login');
-    }, 2000);
+    setIsSubmitting(true);
+
+    try {
+      await api.post('/auth/signup', {
+        username: name,
+        email,
+        password,
+      });
+
+      setSuccess(true);
+      setTimeout(() => {
+        navigate('/login');
+      }, 2000);
+    } catch (err: any) {
+      setError(err?.response?.data?.message || 'Cannot create account');
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -133,9 +148,10 @@ export const Signup = () => {
 
               <button
                 type="submit"
-                className="w-full bg-[#FF6B35] text-white py-3 rounded-lg font-bold hover:bg-[#e55a2b] transition-colors shadow-lg shadow-orange-200"
+                disabled={isSubmitting}
+                className="w-full bg-[#FF6B35] text-white py-3 rounded-lg font-bold hover:bg-[#e55a2b] transition-colors shadow-lg shadow-orange-200 disabled:opacity-60 disabled:cursor-not-allowed"
               >
-                Create Account
+                {isSubmitting ? 'Creating account...' : 'Create Account'}
               </button>
             </form>
           )}
