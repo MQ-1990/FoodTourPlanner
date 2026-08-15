@@ -224,36 +224,25 @@ export const Home = () => {
               {/* Location */}
               <div className="flex flex-col">
                 <span className="text-white/90 text-[11px] uppercase tracking-wide drop-shadow flex items-center gap-1">
-                  <MapPin className="w-3 h-3" /> Quận / Huyện
+                  <MapPin className="w-3 h-3" /> Location
                 </span>
                 <select
                   value={locationFilter}
                   onChange={(e) => setLocationFilter(e.target.value)}
-                  className="w-[160px] border border-white/60 rounded-lg px-2 py-1.5 text-xs bg-white/90 text-slate-800 
-                    focus:outline-none focus:ring-1 focus:ring-[#FF6B35]"
+                  className="w-[140px] border border-white/60 rounded-lg px-2 py-1.5 text-xs bg-white/90 text-slate-800 
+        focus:outline-none focus:ring-1 focus:ring-[#FF6B35]"
                 >
-                  <option value="">Tất cả</option>
-                  
-                  {/* Quận nội thành */}
-                  <option value="District 1">Quận 1</option>
-                  <option value="District 2">Quận 2 (Thủ Đức)</option>
-                  <option value="District 3">Quận 3</option>
-                  <option value="District 4">Quận 4</option>
-                  <option value="District 5">Quận 5</option>
-                  <option value="District 6">Quận 6</option>
-                  <option value="District 7">Quận 7</option>
-                  <option value="District 8">Quận 8</option>
-                  <option value="District 10">Quận 10</option>
-                  <option value="District 11">Quận 11</option>
-                  <option value="District 12">Quận 12</option>
-
-                  {/* Quận khác */}
-                  <option value="Binh Thanh">Quận Bình Thạnh</option>
-                  <option value="Phu Nhuan">Quận Phú Nhuận</option>
-                  <option value="Tan Binh">Quận Tân Bình</option>
-                  <option value="Tan Phu">Quận Tân Phú</option>
-                  <option value="Go Vap">Quận Gò Vấp</option>
-                  <option value="Binh Tan">Quận Bình Tân</option>
+                  <option value="">Anywhere</option>
+                  <option value="District 1">District 1</option>
+                  <option value="District 2">District 2</option>
+                  <option value="District 3">District 3</option>
+                  <option value="District 4">District 4</option>
+                  <option value="District 5">District 5</option>
+                  <option value="District 6">District 6</option>
+                  <option value="District 7">District 7</option>
+                  <option value="District 8">District 8</option>
+                  <option value="District 9">District 9</option>
+                  <option value="District 10">District 10</option>
                 </select>
               </div>
 
