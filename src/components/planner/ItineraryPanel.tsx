@@ -2,6 +2,21 @@ import { ChevronLeft, Clock, Map, Search, Sparkles, Save, Edit2 } from 'lucide-r
 import { Restaurant } from '../../lib/data';
 import { DraggableStop } from './DraggableStop';
 
+interface OptimizationSummary {
+  algorithm?: string;
+  objective?: string;
+  routeProvider?: string;
+  orderingProvider?: string;
+  distanceModel?: string;
+  distanceBeforeKm?: number;
+  distanceAfterKm?: number;
+  timeBeforeMinutes?: number;
+  timeAfterMinutes?: number;
+  improvementPercent?: number;
+  routeDistanceKm?: number;
+  routeTimeMinutes?: number;
+}
+
 interface ItineraryPanelProps {
   tourStops: Restaurant[];
   tourName: string;
@@ -21,6 +36,14 @@ interface ItineraryPanelProps {
   removeStop: (id: string) => void;
   handleRestaurantClick: (r: Restaurant) => void;
   optimizeRoute: () => void;
+  optimizationSummary?: OptimizationSummary | null;
+  routeObjective: "driving-distance" | "driving-time";
+  onRouteObjectiveChange: (objective: "driving-distance" | "driving-time") => void;
+  startMode: "first-stop" | "current-location" | "address" | "map";
+  onStartModeChange: (mode: "first-stop" | "current-location" | "address" | "map") => void;
+  customStartAddress: string;
+  onCustomStartAddressChange: (address: string) => void;
+  isResolvingStartLocation: boolean;
   handleSaveTour: () => void;
   editingTourId: string | null;
   setShowItinerary: (v: boolean) => void;
@@ -39,11 +62,17 @@ export const ItineraryPanel = ({
   isEditingName, setIsEditingName, tempName, setTempName,
   handleNameSave, handleNameCancel,
   moveStop, syncStopOrder, removeStop, handleRestaurantClick,
-  optimizeRoute, handleSaveTour, editingTourId,
+  optimizeRoute, optimizationSummary, routeObjective, onRouteObjectiveChange,
+  startMode, onStartModeChange, customStartAddress, onCustomStartAddressChange, isResolvingStartLocation,
+  handleSaveTour, editingTourId,
   setShowItinerary, setShowTourMenu, setShowSaved,
   setShowMyTours, setSelectedTour, setSelectedRestaurant,
   onBack, onFindRestaurants,
 }: ItineraryPanelProps) => {
+  const formatKm = (value?: number) => `${Number(value || 0).toFixed(2)} km`;
+  const formatMinutes = (value?: number) => `${Math.round(Number(value || 0))} min`;
+  const isTimeObjective = optimizationSummary?.objective === 'driving-time';
+
   const goBack = () => {
     onBack();
   };
@@ -161,10 +190,85 @@ export const ItineraryPanel = ({
             </button>
           ))}
         </div>
+        <div className="mt-3 grid grid-cols-2 gap-2">
+          <label className="text-xs text-gray-600">
+            Optimize for
+            <select
+              value={routeObjective}
+              onChange={(event) => onRouteObjectiveChange(event.target.value as "driving-distance" | "driving-time")}
+              className="mt-1 w-full rounded-md border border-gray-200 bg-white px-2 py-2 text-sm text-gray-800 outline-none focus:border-purple-400"
+            >
+              <option value="driving-distance">Shortest distance</option>
+              <option value="driving-time">Fastest route</option>
+            </select>
+          </label>
+          <label className="text-xs text-gray-600">
+            Start from
+            <select
+              value={startMode}
+              onChange={(event) => onStartModeChange(event.target.value as "first-stop" | "current-location" | "address" | "map")}
+              className="mt-1 w-full rounded-md border border-gray-200 bg-white px-2 py-2 text-sm text-gray-800 outline-none focus:border-purple-400"
+            >
+              <option value="first-stop">First stop</option>
+              <option value="current-location">Current location</option>
+              <option value="address">Enter an address</option>
+              <option value="map">Pick on map</option>
+            </select>
+          </label>
+        </div>
+        {startMode === "map" && (
+          <p className="mt-2 text-xs text-purple-700">Click a location on the map to set the starting point.</p>
+        )}
+        {startMode === "address" && (
+          <label className="mt-2 block text-xs text-gray-600">
+            Starting address
+            <input
+              value={customStartAddress}
+              onChange={(event) => onCustomStartAddressChange(event.target.value)}
+              placeholder="e.g. Ben Thanh Market, Ho Chi Minh City"
+              className="mt-1 w-full rounded-md border border-gray-200 bg-white px-2 py-2 text-sm text-gray-800 outline-none focus:border-purple-400"
+            />
+          </label>
+        )}
         <div className="flex gap-4 text-sm text-gray-500 mt-3 pb-3 border-b border-gray-200">
-          <span className="flex items-center gap-1"><Clock className="w-4 h-4" /> ~{tourStops.length * 1.5}h</span>
+          <span className="flex items-center gap-1"><Clock className="w-4 h-4" /> {optimizationSummary?.routeTimeMinutes !== undefined ? formatMinutes(optimizationSummary.routeTimeMinutes) : 'Not optimized'}</span>
           <span className="flex items-center gap-1"><Map className="w-4 h-4" /> {tourStops.length} stops</span>
         </div>
+        {optimizationSummary && (
+          <div className="mt-3 rounded-lg border border-purple-200 bg-purple-50 p-3 text-sm text-purple-900">
+            <div className="flex items-center justify-between gap-2">
+              <div className="flex items-center gap-2 font-semibold">
+                <Sparkles className="w-4 h-4" /> Optimized route
+              </div>
+              <span className="text-xs uppercase tracking-wide text-purple-600">
+                {optimizationSummary.orderingProvider === 'geoapify' ? 'Road-matrix optimized' : 'Distance estimate'}
+              </span>
+            </div>
+            <div className="mt-2 grid grid-cols-3 gap-2 text-xs">
+              <div>
+                <p className="text-purple-500">{isTimeObjective ? "Time before" : "Distance before"}</p>
+                <p className="font-semibold">{isTimeObjective ? formatMinutes(optimizationSummary.timeBeforeMinutes) : formatKm(optimizationSummary.distanceBeforeKm)}</p>
+              </div>
+              <div>
+                <p className="text-purple-500">{isTimeObjective ? "Time after" : "Distance after"}</p>
+                <p className="font-semibold">{isTimeObjective ? formatMinutes(optimizationSummary.timeAfterMinutes) : formatKm(optimizationSummary.distanceAfterKm)}</p>
+              </div>
+              <div>
+                <p className="text-purple-500">Improvement</p>
+                <p className="font-semibold">{Number(optimizationSummary.improvementPercent || 0).toFixed(1)}%</p>
+              </div>
+            </div>
+            <div className="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-xs text-purple-700">
+              <span>{optimizationSummary.algorithm || 'nearest-neighbor + 2-opt'}</span>
+              {optimizationSummary.routeDistanceKm !== undefined && (
+                <span>Road: {formatKm(optimizationSummary.routeDistanceKm)}</span>
+              )}
+              {optimizationSummary.routeTimeMinutes !== undefined && (
+                <span>ETA: {formatMinutes(optimizationSummary.routeTimeMinutes)}</span>
+              )}
+            </div>
+          </div>
+        )}
       </div>
 
       <div className="space-y-3 mb-4">
@@ -188,9 +292,9 @@ export const ItineraryPanel = ({
         </button>
       </div>
       <div className="flex gap-2 sticky bottom-0 bg-gray-50 pt-2 pb-4">
-        <button onClick={optimizeRoute}
+        <button onClick={optimizeRoute} disabled={isResolvingStartLocation}
           className="flex-1 flex items-center justify-center gap-2 bg-purple-50 text-purple-700 border border-purple-200 py-3 rounded-lg text-sm font-medium hover:bg-purple-100 transition-colors">
-          <Sparkles className="w-4 h-4" /> Optimize Route
+          <Sparkles className="w-4 h-4" /> {isResolvingStartLocation ? "Locating..." : "Optimize Route"}
         </button>
         <button onClick={handleSaveTour}
           className="flex-1 flex items-center justify-center gap-2 bg-[#FF6B35] text-white py-3 rounded-lg text-sm font-medium hover:bg-[#e55a2b] transition-colors shadow-lg shadow-orange-200">
@@ -200,3 +304,5 @@ export const ItineraryPanel = ({
     </div>
   );
 };
+
+
