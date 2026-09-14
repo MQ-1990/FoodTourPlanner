@@ -37,6 +37,15 @@ import {
   ItineraryPanel,
 } from "../components/planner";
 
+type RouteObjective = "driving-distance" | "driving-time";
+type StartMode = "first-stop" | "current-location" | "address" | "map";
+
+interface StartLocation {
+  lat: number;
+  lon: number;
+  label: string;
+}
+
 export const Planner = () => {
   const location = useLocation();
   const { restaurants: allRestaurants, isLoading: isLoadingRestaurants } = useRestaurants();
@@ -45,6 +54,13 @@ export const Planner = () => {
   // Tour state
   const [tourStops, setTourStops] = useState<Restaurant[]>([]);
   const tourStopsRef = useRef<Restaurant[]>([]);
+  const [routeGeometry, setRouteGeometry] = useState<any | null>(null);
+  const [optimizationSummary, setOptimizationSummary] = useState<any | null>(null);
+  const [routeObjective, setRouteObjective] = useState<RouteObjective>("driving-distance");
+  const [startMode, setStartMode] = useState<StartMode>("first-stop");
+  const [customStartAddress, setCustomStartAddress] = useState("");
+  const [activeStartLocation, setActiveStartLocation] = useState<StartLocation | null>(null);
+  const [isResolvingStartLocation, setIsResolvingStartLocation] = useState(false);
   const [tourName, setTourName] = useState("My Food Tour");
   const [tourDescription, setTourDescription] = useState("");
   const [tourTags, setTourTags] = useState<string[]>([]);
@@ -416,6 +432,9 @@ export const Planner = () => {
     }
 
     setTourStops(tourRestaurants);
+    setRouteGeometry(null);
+    setOptimizationSummary(null);
+    resetStartSelection();
     setTourName(tour.title || tour.name || "Untitled Tour");
     setTourDescription(tour.description || "");
     setTourTags(tour.tags || []);
@@ -720,6 +739,8 @@ export const Planner = () => {
     newStops.splice(dragIndex, 1);
     newStops.splice(hoverIndex, 0, dragStop);
     tourStopsRef.current = newStops;
+    setRouteGeometry(null);
+    setOptimizationSummary(null);
     setTourStops(newStops);
   };
 
@@ -748,6 +769,8 @@ export const Planner = () => {
   const removeStop = async (id: string) => {
     const removedStop = tourStops.find((stop) => String(stop.id) === String(id));
     const newStops = tourStops.filter((stop) => String(stop.id) !== String(id));
+    setRouteGeometry(null);
+    setOptimizationSummary(null);
     setTourStops(newStops);
 
     if (!editingTourId || !removedStop) return;
@@ -778,6 +801,8 @@ export const Planner = () => {
     if (isSelected) {
       removeStop(restaurant.id);
     } else {
+      setRouteGeometry(null);
+      setOptimizationSummary(null);
       setTourStops([...tourStops, restaurant]);
       if (!showItinerary && tourStops.length === 0) {
         toast.success(
@@ -787,11 +812,98 @@ export const Planner = () => {
     }
   };
 
+  const clearOptimizedRoute = () => {
+    setRouteGeometry(null);
+    setOptimizationSummary(null);
+  };
+
+  const handleStartModeChange = (mode: StartMode) => {
+    setStartMode(mode);
+    setActiveStartLocation(null);
+    clearOptimizedRoute();
+  };
+
+  const handleCustomStartAddressChange = (address: string) => {
+    setCustomStartAddress(address);
+    setActiveStartLocation(null);
+    clearOptimizedRoute();
+  };
+
+  const handleMapStartLocation = (startLocation: StartLocation) => {
+    setActiveStartLocation(startLocation);
+    clearOptimizedRoute();
+    toast.success("Starting point selected on the map");
+  };
+
+  const resolveStartLocation = async (): Promise<StartLocation | null> => {
+    if (startMode === "first-stop") {
+      setActiveStartLocation(null);
+      return null;
+    }
+
+    if (startMode === "map") {
+      if (!activeStartLocation) throw new Error("Click a starting point on the map first");
+      return activeStartLocation;
+    }
+
+    setIsResolvingStartLocation(true);
+    try {
+      if (startMode === "current-location") {
+        if (!navigator.geolocation) throw new Error("This browser does not support current location");
+        const position = await new Promise<GeolocationPosition>((resolve, reject) => {
+          navigator.geolocation.getCurrentPosition(resolve, reject, {
+            enableHighAccuracy: true,
+            timeout: 10000,
+            maximumAge: 60000,
+          });
+        });
+        const startLocation = {
+          lat: position.coords.latitude,
+          lon: position.coords.longitude,
+          label: "Current location",
+        };
+        setActiveStartLocation(startLocation);
+        return startLocation;
+      }
+
+      const address = customStartAddress.trim();
+      if (!address) throw new Error("Enter a starting address first");
+      const response = await api.post("/tours/preview/geocode", { address });
+      const startLocation = response.data.startLocation as StartLocation;
+      setActiveStartLocation(startLocation);
+      return startLocation;
+    } finally {
+      setIsResolvingStartLocation(false);
+    }
+  };
+  const resetStartSelection = () => {
+    setStartMode("first-stop");
+    setCustomStartAddress("");
+    setActiveStartLocation(null);
+  };
+
+  const handleRouteObjectiveChange = (objective: RouteObjective) => {
+    setRouteObjective(objective);
+    setRouteGeometry(null);
+    setOptimizationSummary(null);
+  };
   const optimizeRoute = async () => {
+    let startLocation: StartLocation | null;
+    try {
+      startLocation = await resolveStartLocation();
+    } catch (error: any) {
+      console.error("Could not resolve starting location:", error);
+      toast.error(error?.response?.data?.message || error?.message || "Could not resolve starting location");
+      return;
+    }
+
     if (editingTourId) {
       try {
-        const res = await api.post(`/tours/${editingTourId}/optimize`);
+        const res = await api.post(`/tours/${editingTourId}/optimize`, { startLocation, optimizationObjective: routeObjective });
         const updatedTour = syncUpdatedTour(res.data.tour);
+        setActiveStartLocation(res.data.startLocation || startLocation);
+        setRouteGeometry(res.data.route?.geometry || null);
+        setOptimizationSummary(res.data.optimization || null);
         setTourStops(updatedTour.stops);
         toast.success("Route optimized!");
       } catch (err: any) {
@@ -801,12 +913,49 @@ export const Planner = () => {
       return;
     }
 
-    const sorted = [...tourStops].sort((a, b) => a.lat - b.lat);
-    setTourStops(sorted);
-    toast.success("Route optimized!");
+    const restaurantIds = tourStops.map(getRestaurantObjectId).filter(Boolean);
+    if (restaurantIds.length !== tourStops.length) {
+      toast.error("Some restaurants are missing backend ids. Please refresh and try again.");
+      return;
+    }
+
+    try {
+      const res = await api.post("/tours/preview/optimize", {
+        restaurantIds,
+        startLocation,
+        optimizationObjective: routeObjective,
+      });
+      const orderedIds = Array.isArray(res.data.restaurantIds)
+        ? res.data.restaurantIds.map(String)
+        : [];
+      const byObjectId = new Map(
+        tourStops.map((stop) => [String(getRestaurantObjectId(stop)), stop]),
+      );
+      const orderedStops = orderedIds
+        .map((id: string) => byObjectId.get(id))
+        .filter(Boolean) as Restaurant[];
+
+      if (orderedStops.length === tourStops.length) {
+        setTourStops(orderedStops);
+      }
+      setActiveStartLocation(res.data.startLocation || startLocation);
+      setRouteGeometry(res.data.route?.geometry || null);
+      setOptimizationSummary(res.data.optimization || null);
+      toast.success("Route optimized!");
+    } catch (err: any) {
+      console.error("Failed to optimize tour preview:", err);
+      setRouteGeometry(null);
+      setOptimizationSummary(null);
+      toast.error(err?.response?.data?.message || "Could not optimize route. Your itinerary order was kept.");
+    }
   };
 
   const handleSaveTour = async () => {
+    if (tourStops.length === 0) {
+      toast.error("Add at least one restaurant before saving a food tour.");
+      return;
+    }
+
     const restaurantIds = tourStops
       .map(getRestaurantObjectId)
       .filter(Boolean);
@@ -846,11 +995,16 @@ export const Planner = () => {
         toast.success(`"${tourName}" updated successfully!`);
       } else {
         setMyTours((prev) => [savedTour, ...prev]);
-        setSavedTours((prev) => prev.find((item) => item.id === savedTour.id) ? prev : [...prev, savedTour]);
+        if (savedTour.isPublic) {
+          setSavedTours((prev) => prev.find((item) => item.id === savedTour.id) ? prev : [savedTour, ...prev]);
+        }
         toast.success(`"${tourName}" saved successfully!`);
       }
 
       setTourStops([]);
+      setRouteGeometry(null);
+      setOptimizationSummary(null);
+      resetStartSelection();
       setTourName("My Food Tour");
       setTourDescription("");
       setTourTags([]);
@@ -883,11 +1037,6 @@ export const Planner = () => {
       // Create new tour
       newSavedTours = [...myTours, tour];
 
-      // Also add to savedTours (Bookmarks) as requested
-      if (!savedTours.find((t) => t.id === tour.id)) {
-        setSavedTours([...savedTours, tour]);
-      }
-
       toast.success(`"${tourName}" saved successfully!`);
     }
 
@@ -899,6 +1048,9 @@ export const Planner = () => {
 
     // Clear current itinerary
     setTourStops([]);
+    setRouteGeometry(null);
+    setOptimizationSummary(null);
+    resetStartSelection();
     setTourName("My Food Tour");
     setTourDescription("");
     setTourTags([]);
@@ -1141,19 +1293,7 @@ export const Planner = () => {
   };
 
   const handleItineraryBack = () => {
-    setShowItinerary(false);
-    setShowMiniItinerary(false);
-    setShowTourMenu(true);
-    setShowSaved(false);
-    setShowMyTours(false);
-    setShowSearchMenu(false);
-    setShowRestaurantSearch(false);
-    setShowTourSearch(false);
-    setShowDishSearch(false);
-    setSelectedRestaurant(null);
-    setSelectedTour(null);
-    setSelectedDish(null);
-    setSavedCategory(null);
+    showTourMenuPanel();
   };
 
   const showMiniItineraryPanel = () => {
@@ -1297,7 +1437,7 @@ export const Planner = () => {
               </button>
 
               {/* Search Menu */}
-              {showSearchMenu && !selectedRestaurant && !selectedTour && (
+              {showSearchMenu && !selectedRestaurant && !selectedTour && !selectedDish && !showItinerary && !showMiniItinerary && !showSaved && !showTourMenu && !showMyTours && (
                 <SearchMenu
                   setShowSearchMenu={setShowSearchMenu}
                   setShowRestaurantSearch={setShowRestaurantSearch}
@@ -1307,7 +1447,7 @@ export const Planner = () => {
               )}
 
               {/* Tour Search Panel */}
-              {showTourSearch && !selectedRestaurant && !selectedTour && (
+              {showTourSearch && !selectedRestaurant && !selectedTour && !selectedDish && !showItinerary && !showMiniItinerary && !showSaved && !showTourMenu && !showMyTours && (
                 <TourSearchPanel
                   tourSearchQuery={tourSearchQuery}
                   setTourSearchQuery={setTourSearchQuery}
@@ -1326,7 +1466,7 @@ export const Planner = () => {
               )}
 
               {/* Dish Search Panel */}
-              {showDishSearch && !selectedRestaurant && !selectedTour && !selectedDish && (
+              {showDishSearch && !selectedRestaurant && !selectedTour && !selectedDish && !showItinerary && !showMiniItinerary && !showSaved && !showTourMenu && !showMyTours && (
                 <DishSearchPanel
                   dishSearchQuery={dishSearchQuery}
                   setDishSearchQuery={setDishSearchQuery}
@@ -1352,7 +1492,7 @@ export const Planner = () => {
               )}
 
               {/* Restaurant Search Panel */}
-              {showRestaurantSearch && !selectedRestaurant && !selectedTour && (
+              {showRestaurantSearch && !selectedRestaurant && !selectedTour && !selectedDish && !showItinerary && !showMiniItinerary && !showSaved && !showTourMenu && !showMyTours && (
                 <RestaurantSearchPanel
                   searchQuery={searchQuery}
                   setSearchQuery={setSearchQuery}
@@ -1485,6 +1625,14 @@ export const Planner = () => {
                     removeStop={removeStop}
                     handleRestaurantClick={handleRestaurantClick}
                     optimizeRoute={optimizeRoute}
+                    optimizationSummary={optimizationSummary}
+                    routeObjective={routeObjective}
+                    onRouteObjectiveChange={handleRouteObjectiveChange}
+                    startMode={startMode}
+                    onStartModeChange={handleStartModeChange}
+                    customStartAddress={customStartAddress}
+                    onCustomStartAddressChange={handleCustomStartAddressChange}
+                    isResolvingStartLocation={isResolvingStartLocation}
                     handleSaveTour={handleSaveTour}
                     editingTourId={editingTourId}
                     setShowItinerary={setShowItinerary}
@@ -1508,6 +1656,11 @@ export const Planner = () => {
         <MapPanel
           filteredRestaurants={filteredRestaurants}
           tourStops={tourStops}
+          routeGeometry={routeGeometry}
+          optimizationSummary={optimizationSummary}
+          startLocation={activeStartLocation}
+          isPickingStartLocation={startMode === "map"}
+          onPickStartLocation={handleMapStartLocation}
           selectedRestaurant={selectedRestaurant}
           selectedTour={selectedTour}
           tourName={tourName}
@@ -1519,3 +1672,8 @@ export const Planner = () => {
     </DndProvider>
   );
 };
+
+
+
+
+
