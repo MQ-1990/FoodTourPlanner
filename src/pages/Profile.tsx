@@ -53,16 +53,59 @@ export const Profile = () => {
   const [tempPhone, setTempPhone] = useState('');
   const [tempAddress, setTempAddress] = useState(DEFAULT_ADDRESS);
   const [tempAvatar, setTempAvatar] = useState(DEFAULT_AVATAR);
+  const [tempTasteProfile, setTempTasteProfile] = useState<string[]>([]);
 
   const [selectedPreferences, setSelectedPreferences] = useState<string[]>(() => {
     const saved = localStorage.getItem('userTastePreferences');
-    return saved ? JSON.parse(saved) : ['Spicy', 'Seafood', 'Coffee'];
+    return saved ? JSON.parse(saved) : ["Any"];
   });
   const [selectedPriceRange, setSelectedPriceRange] = useState('100,000 - 300,000 VND');
   const [selectedArea, setSelectedArea] = useState(DEFAULT_ADDRESS);
 
   const preferences = ['Spicy', 'Sweet', 'Seafood', 'Coffee', 'Milk Tea', 'Vegetarian', 'BBQ', 'Pho', 'Noodles'];
   const priceRanges = ['< 50,000 VND', '50,000 - 100,000 VND', '100,000 - 300,000 VND', '300,000 - 500,000 VND', '> 500,000 VND'];
+  const areaOptions = [
+    // Thành phố Thủ Đức
+    "Thu Duc City, Ho Chi Minh City",
+
+    // Quận trung tâm
+    "District 1, Ho Chi Minh City",
+    "District 3, Ho Chi Minh City",
+    "District 4, Ho Chi Minh City",
+    "District 5, Ho Chi Minh City",
+    "District 6, Ho Chi Minh City",
+    "District 8, Ho Chi Minh City",
+    "District 10, Ho Chi Minh City",
+    "District 11, Ho Chi Minh City",
+
+    // Khu Đông
+    "District 2, Ho Chi Minh City",
+    "District 9, Ho Chi Minh City",
+
+    // Khu Bắc
+    "District 12, Ho Chi Minh City",
+    "Go Vap District, Ho Chi Minh City",
+    "Tan Binh District, Ho Chi Minh City",
+    "Tan Phu District, Ho Chi Minh City",
+
+    // Khu Tây
+    "Binh Tan District, Ho Chi Minh City",
+    "Binh Chanh District, Ho Chi Minh City",
+
+    // Khu Nam
+    "District 7, Ho Chi Minh City",
+    "Nha Be District, Ho Chi Minh City",
+    "Can Gio District, Ho Chi Minh City",
+
+    // Khu nội thành khác
+    "Binh Thanh District, Ho Chi Minh City",
+    "Phu Nhuan District, Ho Chi Minh City",
+
+    // Huyện ngoại thành
+    "Hoc Mon District, Ho Chi Minh City",
+    "Cu Chi District, Ho Chi Minh City",
+  ];
+
 
   const normalizeTour = (tour: any): ProfileTour => {
     const stops = Array.isArray(tour.restaurants) ? tour.restaurants.length : 0;
@@ -86,9 +129,11 @@ export const Profile = () => {
     const displayName = profile.username || profile.email || '';
     const displayPhone = profile.phone || '';
     const displayAvatar = profile.avatar || DEFAULT_AVATAR;
-    const tastes = Array.isArray(profile.taste_profile) && profile.taste_profile.length
-      ? profile.taste_profile
-      : [];
+    const tastes =
+      Array.isArray(profile.taste_profile) &&
+      profile.taste_profile.length
+        ? profile.taste_profile
+        : ["Any"];
 
     setName(displayName);
     setEmail(profile.email || '');
@@ -99,10 +144,9 @@ export const Profile = () => {
     setTempAvatar(displayAvatar);
     setFavoriteIds(Array.isArray(profile.favorites) ? profile.favorites : []);
 
-    if (tastes.length) {
-      setSelectedPreferences(tastes);
-      localStorage.setItem('userTastePreferences', JSON.stringify(tastes));
-    }
+    setSelectedPreferences(tastes);
+    setTempTasteProfile(tastes);
+    localStorage.setItem('userTastePreferences', JSON.stringify(tastes));
   };
 
   useEffect(() => {
@@ -139,6 +183,7 @@ export const Profile = () => {
         username: tempName,
         phone: tempPhone,
         avatar: tempAvatar,
+        taste_profile: tempTasteProfile,
       });
 
       applyProfile(res.data);
@@ -160,15 +205,81 @@ export const Profile = () => {
     setTempPhone(phone);
     setTempAddress(address);
     setTempAvatar(avatar);
+    setTempTasteProfile(selectedPreferences);
     setIsEditing(false);
   };
 
   const togglePreference = (pref: string) => {
-    setSelectedPreferences((prev) =>
-      prev.includes(pref)
-        ? prev.filter((p) => p !== pref)
-        : [...prev, pref]
-    );
+
+    setSelectedPreferences((prev) => 
+    {
+
+      if (pref === "Any") 
+      {
+        return ["Any"];
+      }
+
+      const newPreferences = prev.filter((p) => p !== "Any");
+
+      if (newPreferences.includes(pref)) 
+      {
+
+        const removed = newPreferences.filter((p) => p !== pref);
+
+        return removed.length === 0
+          ? ["Any"]
+          : removed;
+
+      }
+
+
+      // Có taste cụ thể -> thêm và loại Any
+      return [
+        ...newPreferences,
+        pref
+      ];
+
+    });
+  };
+
+  const toggleTempTaste = (pref: string) => {
+
+    setTempTasteProfile((prev) => {
+
+
+      if(pref === "Any"){
+
+        return ["Any"];
+
+      }
+
+
+      const newProfile = prev.filter(
+        p => p !== "Any"
+      );
+
+
+      if(newProfile.includes(pref)){
+
+        const removed = newProfile.filter(
+          p => p !== pref
+        );
+
+
+        return removed.length === 0
+          ? ["Any"]
+          : removed;
+
+      }
+
+
+      return [
+        ...newProfile,
+        pref
+      ];
+
+    });
+
   };
 
   const handleSavePreferences = async () => {
@@ -260,6 +371,33 @@ export const Profile = () => {
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg text-slate-600 outline-none"
                     placeholder="Address"
                   />
+
+                  <div className="mt-4">
+                    <label className="block font-medium text-gray-700 mb-3">
+                      Taste Profile
+                    </label>
+
+                    <div className="flex flex-wrap gap-2">
+                      {preferences.map((pref) => (
+                        <button
+                          key={pref}
+                          type="button"
+                          onClick={() => toggleTempTaste(pref)}
+                          className={`px-3 py-2 rounded-lg border transition-colors ${
+                            tempTasteProfile.includes(pref)
+                              ? 'bg-[#FF6B35] text-white border-[#FF6B35]'
+                              : 'bg-white text-gray-700 border-gray-300 hover:border-[#FF6B35]'
+                          }`}
+                        >
+                          {pref}
+                        </button>
+                      ))}
+                    </div>
+
+                    <p className="text-xs text-gray-500 mt-2">
+                      Your taste profile helps us recommend restaurants that match your preferences.
+                    </p>
+                  </div>
                   <div className="flex gap-2">
                     <button
                       onClick={handleSaveProfile}
@@ -320,7 +458,10 @@ export const Profile = () => {
             <div className="flex gap-2">
               {!isEditing && (
                 <button
-                  onClick={() => setIsEditing(true)}
+                  onClick={() => {
+                    setTempTasteProfile(selectedPreferences);
+                    setIsEditing(true);
+                  }}
                   className="flex items-center gap-2 px-4 py-2 rounded-lg border border-gray-200 hover:bg-gray-50 text-gray-700 transition-colors"
                 >
                   <Edit2 className="w-4 h-4" />
@@ -428,13 +569,40 @@ export const Profile = () => {
                 <label className="block font-medium text-gray-700 mb-3">
                   Preferred Area
                 </label>
-                <input
-                  type="text"
+                <select
                   value={selectedArea}
                   onChange={(e) => setSelectedArea(e.target.value)}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg outline-none focus:ring-2 focus:ring-[#FF6B35] focus:border-transparent"
-                  placeholder="e.g., District 1, Ho Chi Minh City"
-                />
+                  className="
+                    w-full 
+                    px-4 
+                    py-3 
+                    border 
+                    border-gray-300 
+                    rounded-lg
+                    outline-none
+                    focus:ring-2
+                    focus:ring-[#FF6B35]
+                    focus:border-transparent
+                    bg-white
+                  "
+                >
+
+                  <option value="">
+                    Select your preferred area
+                  </option>
+
+
+                  {areaOptions.map((area) => (
+                    <option 
+                      key={area}
+                      value={area}
+                    >
+                      {area}
+                    </option>
+                  ))}
+
+
+                </select>
               </div>
 
               <button

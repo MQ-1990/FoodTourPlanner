@@ -1,4 +1,6 @@
 import React, { useState } from 'react';
+import api from '../lib/api';
+
 import { Link, useNavigate } from 'react-router-dom';
 import { Search, MapPin, Soup, Coffee, UtensilsCrossed, Beer, Clock, Star, Navigation, SlidersHorizontal, Fish, Flame, Wallet, } from 'lucide-react';
 import { motion } from 'motion/react';
@@ -110,41 +112,59 @@ export const Home = () => {
     ],
   };
 
-  // Recommendation Algorithm
-  const { restaurants: allRestaurants } = useRestaurants();
-  const [recommendedRestaurants, setRecommendedRestaurants] = useState(allRestaurants);
 
-  React.useEffect(() => {
-    if (allRestaurants.length === 0) return;
+// Recommendation from Backend
+const { restaurants: allRestaurants } = useRestaurants();
 
-    const savedPrefs = localStorage.getItem('userTastePreferences');
-    if (savedPrefs) {
-      const prefs: string[] = JSON.parse(savedPrefs);
-      // Score and sort restaurants
-      const scored = allRestaurants.map(r => {
-        let score = 0;
-        prefs.forEach(pref => {
-          if (r.tags.includes(pref) || r.amenities.includes(pref)) score += 2;
-          // Simple text matching for descriptions or names
-          if (r.description.toLowerCase().includes(pref.toLowerCase())) score += 1;
-        });
-        return { ...r, score };
-      }).sort((a, b) => b.score - a.score); // Sort by highest score
+const [recommendedRestaurants, setRecommendedRestaurants] =
+    useState<any[]>([]);
 
-      // Only set if we actually have preferences to ensure we show the most relevant ones
-      if (prefs.length > 0) {
-        setRecommendedRestaurants(scored.map(s => {
-          // Remove the temporary score property to match Restaurant type
-          const { score, ...rest } = s;
-          return rest;
-        }));
-      } else {
-        setRecommendedRestaurants(allRestaurants);
+const [recommendationReady, setRecommendationReady] =
+useState(false);
+
+////
+React.useEffect(() => {
+
+  const fetchRecommendations = async () => {
+      try {
+          const response = await api.get(
+              "/recommendations/restaurants"
+          );
+
+
+          const recommendations =
+              response.data.data || [];
+
+
+          setRecommendedRestaurants(recommendations);
+          
+          setRecommendationReady(true);
+
+
+          console.log(
+              "RECOMMEND DATA:",
+              recommendations
+          );
+
+
+      } catch(error){
+
+          console.error(
+              "Failed to load recommendations",
+              error
+          );
+
+          setRecommendedRestaurants([]);
+
       }
-    } else {
-      setRecommendedRestaurants(allRestaurants);
-    }
-  }, [allRestaurants]);
+  };
+
+
+ fetchRecommendations();
+
+
+},[]);
+//xóa tới đây
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
@@ -434,18 +454,121 @@ export const Home = () => {
             View all
           </Link>
         </div>
-
+        
         <div className="-mx-2">
-          <Slider {...settings}>
-            {recommendedRestaurants.slice(0, 5).map((restaurant) => (
-              <div key={restaurant.id} className="px-2 h-full py-2">
-                <Link to={`/restaurant/${restaurant.id}`}>
-                  <RestaurantCard restaurant={restaurant as any} />
+
+          
+
+        {
+        !recommendationReady ? (
+
+            <div className="text-center p-8">
+                Loading recommendations...
+            </div>
+
+
+        ) : recommendedRestaurants.length === 0 ? (
+
+            <div
+                className="
+                bg-orange-50
+                rounded-xl
+                p-8
+                text-center
+                "
+            >
+
+                <h3
+                className="
+                text-lg
+                font-semibold
+                text-slate-800
+                "
+                >
+                    Discover your taste
+                </h3>
+
+
+                <Link
+                to="/profile"
+                className="
+                mt-5
+                inline-flex
+                items-center
+                justify-center
+                w-[600px]
+                h-[100px]
+                bg-[#FF6B35]
+                text-white
+                rounded-xl
+                text-base
+                font-semibold
+                shadow-md
+                hover:bg-[#e85d2a]
+                "
+                >
+
+                Set Taste Preferences
+
                 </Link>
-              </div>
-            ))}
-          </Slider>
+
+
+                <p
+                className="
+                text-sm
+                text-slate-500
+                mt-2
+                "
+                >
+
+                Select your favorite cuisines
+                to receive personalized recommendations.
+
+                </p>
+
+
+            </div>
+
+          
+        ) : (
+
+          
+////
+            <Slider {...settings}>
+
+            {
+            recommendedRestaurants
+            .slice(0,5)
+            .map((restaurant:any)=>(
+
+                <div
+                    key={restaurant.id}
+                    className="px-2 py-2"
+                >
+
+                    <Link
+                        to={`/restaurant/${restaurant.id}`}
+                    >
+
+                        <RestaurantCard
+                            restaurant={restaurant}
+                        />
+
+                    </Link>
+
+                </div>
+
+            ))
+            }
+
+            </Slider>
+////
+        )
+
+        }
+
         </div>
+        
       </section>
 
       {/* Trending Tours Section */}

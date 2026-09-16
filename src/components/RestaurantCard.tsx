@@ -42,7 +42,7 @@ export const RestaurantCard = ({ restaurant, vertical = true, compact = false }:
           <div className="flex items-center text-xs text-gray-500 mb-2">
             <span className="font-medium text-slate-700">{restaurant.priceRange}</span>
             <span className="mx-1.5">•</span>
-            <span className="line-clamp-1">{restaurant.tags[0]}, {restaurant.tags[1]}</span>
+            <span className="line-clamp-1">{restaurant.tags?.slice(0,2).join(", ")}</span>
           </div>
 
           {!compact && (
