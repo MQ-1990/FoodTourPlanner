@@ -266,6 +266,9 @@ export const Planner = () => {
       distance: tour.totalDistance ? `${tour.totalDistance.toFixed(1)} km` : "N/A",
       rating: tour.rating || 0,
       isBackendTour: true,
+      routeGeometry: tour.routeGeometry || null,
+      optimizationSummary: tour.optimizationSummary || null,
+      routeStartLocation: tour.routeStartLocation || null,
     };
   };
 
@@ -409,7 +412,7 @@ export const Planner = () => {
   };
 
   // Load a saved tour into the planner
-  const loadTour = (tour: any) => {
+  const loadTour = (tour: any, isEditing = false) => {
     // Map tour ID to restaurants
     let tourRestaurants: Restaurant[] = [];
 
@@ -432,9 +435,11 @@ export const Planner = () => {
     }
 
     setTourStops(tourRestaurants);
-    setRouteGeometry(null);
-    setOptimizationSummary(null);
-    resetStartSelection();
+    setRouteGeometry(tour.routeGeometry || null);
+    setOptimizationSummary(tour.optimizationSummary || null);
+    setActiveStartLocation(tour.routeStartLocation || null);
+    setStartMode(tour.routeStartLocation ? "map" : "first-stop");
+    setCustomStartAddress("");
     setTourName(tour.title || tour.name || "Untitled Tour");
     setTourDescription(tour.description || "");
     setTourTags(tour.tags || []);
@@ -445,7 +450,7 @@ export const Planner = () => {
     setSavedCategory(null);
     setSelectedRestaurant(null);
     setSelectedTour(null);
-    setEditingTourId(null); // Default to new tour unless specified otherwise
+    setEditingTourId(isEditing ? tour.id : null);
 
     toast.success(`Loaded "${tour.title || tour.name}"!`);
   };
@@ -987,7 +992,22 @@ export const Planner = () => {
       const res = editingTourId
         ? await api.put(`/tours/${editingTourId}`, payload)
         : await api.post("/tours", payload);
-      const savedTour = normalizeBackendTour(res.data.tour);
+      let persistedBackendTour = res.data.tour;
+
+      if (!editingTourId && optimizationSummary) {
+        try {
+          const optimizeRes = await api.post(`/tours/${persistedBackendTour._id}/optimize`, {
+            startLocation: activeStartLocation,
+            optimizationObjective: routeObjective,
+          });
+          persistedBackendTour = optimizeRes.data.tour;
+        } catch (optimizeError) {
+          console.error("Tour was created but optimized route could not be persisted:", optimizeError);
+          toast.error("Tour was saved, but its optimized route could not be saved. Please optimize it again from My Tours.");
+        }
+      }
+
+      const savedTour = normalizeBackendTour(persistedBackendTour);
 
       if (editingTourId) {
         setMyTours((prev) => prev.map((item) => item.id === editingTourId ? savedTour : item));
@@ -1010,6 +1030,11 @@ export const Planner = () => {
       setTourTags([]);
       setEditingTourId(null);
       localStorage.removeItem(itineraryDraftKey);
+      setShowItinerary(false);
+      setShowMiniItinerary(false);
+      setShowTourMenu(false);
+      setShowMyTours(true);
+      await fetchMyTours();
       return;
     } catch (err: any) {
       console.error("Failed to save tour to backend:", err);
@@ -1098,8 +1123,7 @@ export const Planner = () => {
   };
 
   const handleEditMyTour = (tour: any) => {
-    loadTour(tour);
-    setEditingTourId(tour.id);
+    loadTour(tour, true);
     setShowMyTours(false);
   };
 
@@ -1672,7 +1696,6 @@ export const Planner = () => {
     </DndProvider>
   );
 };
-
 
 
 
