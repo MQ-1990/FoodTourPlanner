@@ -15,6 +15,8 @@ interface ProfileUser {
   phone?: string | null;
   avatar?: string | null;
   taste_profile?: string[];
+  preferred_area?: string;
+  price_range?: string;
   favorites?: number[];
 }
 
@@ -59,11 +61,18 @@ export const Profile = () => {
     const saved = localStorage.getItem('userTastePreferences');
     return saved ? JSON.parse(saved) : ["Any"];
   });
-  const [selectedPriceRange, setSelectedPriceRange] = useState('100,000 - 300,000 VND');
+  const [selectedPriceRange, setSelectedPriceRange] = useState('');
   const [selectedArea, setSelectedArea] = useState(DEFAULT_ADDRESS);
 
   const preferences = ['Spicy', 'Sweet', 'Seafood', 'Coffee', 'Milk Tea', 'Vegetarian', 'BBQ', 'Pho', 'Noodles'];
-  const priceRanges = ['< 50,000 VND', '50,000 - 100,000 VND', '100,000 - 300,000 VND', '300,000 - 500,000 VND', '> 500,000 VND'];
+  const priceRanges = [
+    { value: '', label: 'Any budget' },
+    { value: '$', label: '< 50,000 VND' },
+    { value: '$$', label: '50,000 - 100,000 VND' },
+    { value: '$$$', label: '100,000 - 300,000 VND' },
+    { value: '$$$$', label: '300,000 - 500,000 VND' },
+    { value: '$$$$$', label: '> 500,000 VND' },
+  ];
   const areaOptions = [
     // Thành phố Thủ Đức
     "Thu Duc City, Ho Chi Minh City",
@@ -147,6 +156,8 @@ export const Profile = () => {
     setSelectedPreferences(tastes);
     setTempTasteProfile(tastes);
     localStorage.setItem('userTastePreferences', JSON.stringify(tastes));
+    setSelectedArea(profile.preferred_area || DEFAULT_ADDRESS);
+    setSelectedPriceRange(profile.price_range || '');
   };
 
   useEffect(() => {
@@ -184,6 +195,8 @@ export const Profile = () => {
         phone: tempPhone,
         avatar: tempAvatar,
         taste_profile: tempTasteProfile,
+        preferred_area: selectedArea,
+        price_range: selectedPriceRange,
       });
 
       applyProfile(res.data);
@@ -560,7 +573,7 @@ export const Profile = () => {
                   className="w-full px-4 py-3 border border-gray-300 rounded-lg outline-none focus:ring-2 focus:ring-[#FF6B35] focus:border-transparent"
                 >
                   {priceRanges.map((range) => (
-                    <option key={range} value={range}>{range}</option>
+                    <option key={range.value} value={range.value}>{range.label}</option>
                   ))}
                 </select>
               </div>
