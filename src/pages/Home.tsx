@@ -1,7 +1,7 @@
-import React, { useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import api from '../lib/api';
 
-import { Link, useNavigate } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 import { Search, MapPin, Soup, Coffee, UtensilsCrossed, Beer, Clock, Star, Navigation, SlidersHorizontal, Fish, Flame, Wallet, } from 'lucide-react';
 import { motion } from 'motion/react';
 import Slider from 'react-slick';
@@ -83,8 +83,6 @@ const SlickStyles = () => (
 );
 
 export const Home = () => {
-  const navigate = useNavigate();
-
   // state ô search + filter
   const [keyword, setKeyword] = useState('');
   const [cuisine, setCuisine] = useState('');
@@ -121,10 +119,15 @@ const [recommendedRestaurants, setRecommendedRestaurants] =
 
 const [recommendationReady, setRecommendationReady] =
 useState(false);
+  const [searchResults, setSearchResults] = useState<any[] | null>(null);
+  const [searchLabel, setSearchLabel] = useState('');
+  const searchResultsRef = useRef<HTMLElement>(null);
 
 ////
-React.useEffect(() => {
+useEffect(() => {
 
+  if (allRestaurants.length === 0) return;
+  let isCurrent = true;
   const fetchRecommendations = async () => {
       try {
           const response = await api.get(
@@ -132,19 +135,17 @@ React.useEffect(() => {
           );
 
 
-          const recommendations =
-              response.data.data || [];
-
-
-          setRecommendedRestaurants(recommendations);
-          
-          setRecommendationReady(true);
-
-
-          console.log(
-              "RECOMMEND DATA:",
-              recommendations
-          );
+          const recommendations = Array.isArray(response.data?.data) ? response.data.data : [];
+          const restaurantsById = new Map(allRestaurants.map((restaurant) => [String(restaurant.id), restaurant]));
+          const merged = recommendations
+            .map((recommendation: any) => {
+              const restaurant = restaurantsById.get(String(recommendation.id));
+              return restaurant
+                ? { ...restaurant, rating: recommendation.rating ?? restaurant.rating, recommendationReason: recommendation.reason ?? [] }
+                : null;
+            })
+            .filter(Boolean);
+          if (isCurrent) setRecommendedRestaurants(merged);
 
 
       } catch(error){
@@ -154,8 +155,10 @@ React.useEffect(() => {
               error
           );
 
-          setRecommendedRestaurants([]);
+          if (isCurrent) setRecommendedRestaurants([]);
 
+      } finally {
+          if (isCurrent) setRecommendationReady(true);
       }
   };
 
@@ -163,25 +166,47 @@ React.useEffect(() => {
  fetchRecommendations();
 
 
-},[]);
+  return () => { isCurrent = false; };
+},[allRestaurants]);
 //xóa tới đây
+
+  const isOpenAt = (restaurant: any, time: string) => {
+    if (!time || !restaurant.openingTime || !restaurant.closingTime) return true;
+    const toMinutes = (value: string) => {
+      const [hours, minutes] = value.split(':').map(Number);
+      return hours * 60 + (minutes || 0);
+    };
+    const target = toMinutes(time);
+    const opening = toMinutes(restaurant.openingTime);
+    const closing = toMinutes(restaurant.closingTime);
+    return closing >= opening ? target >= opening && target <= closing : target >= opening || target <= closing;
+  };
+
+  const getSearchResults = (nextCuisine = cuisine) => allRestaurants.filter((restaurant: any) => {
+    const searchableText = [restaurant.name, restaurant.address, restaurant.district, restaurant.cuisine, ...(restaurant.tags || []), ...(restaurant.dishes || []).map((dish: any) => dish.name)].join(' ').toLowerCase();
+    const matchesKeyword = !keyword.trim() || searchableText.includes(keyword.trim().toLowerCase());
+    const matchesCuisine = !nextCuisine || [restaurant.cuisine, ...(restaurant.tags || [])].filter(Boolean).some((value: string) => value.toLowerCase() === nextCuisine.toLowerCase());
+    const matchesLocation = !locationFilter || [restaurant.district, restaurant.address].filter(Boolean).some((value: string) => value.toLowerCase().includes(locationFilter.toLowerCase()));
+    const matchesRating = !rating || Number(restaurant.rating || 0) >= Number(rating);
+    const matchesBudget = !budget || (() => {
+      const value = Number(restaurant.budget || 0);
+      if (budget === 'gt-500000') return value > 500000;
+      const [minimum, maximum] = budget.split('-').map(Number);
+      return value >= minimum && value <= maximum;
+    })();
+    return matchesKeyword && matchesCuisine && matchesLocation && matchesRating && isOpenAt(restaurant, openAt) && matchesBudget;
+  });
+
+  const showSearchResults = (nextCuisine = cuisine, label = 'Search results') => {
+    setSearchResults(getSearchResults(nextCuisine));
+    setSearchLabel(label);
+    window.setTimeout(() => searchResultsRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 0);
+  };
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
 
-    navigate('/planner', {
-      state: {
-        keyword,
-        filters: {
-          cuisine,
-          location: locationFilter,
-          openAt,
-          rating,
-          distance,
-          budget,
-        },
-      },
-    });
+    showSearchResults();
   };
 
   return (
@@ -419,10 +444,14 @@ React.useEffect(() => {
               color: "bg-red-100 text-red-600",
             },
           ].map((cat) => (
-            <Link
-              to="/planner"
+            <button
+              type="button"
               key={cat.name}
               className="group flex flex-col items-center gap-3"
+              onClick={() => {
+                setCuisine(cat.name);
+                showSearchResults(cat.name, `${cat.name} restaurants`);
+              }}
             >
               <div
                 className={`w-16 h-16 rounded-2xl ${cat.color} 
@@ -436,10 +465,33 @@ React.useEffect(() => {
               <span className="font-medium text-slate-700 group-hover:text-slate-900">
                 {cat.name}
               </span>
-            </Link>
+            </button>
           ))}
         </div>
       </section>
+
+      {searchResults && (
+        <section ref={searchResultsRef} className="container mx-auto px-4 py-8 scroll-mt-20">
+          <div className="flex items-end justify-between gap-4 mb-6">
+            <div>
+              <h2 className="text-2xl font-bold text-slate-800">{searchLabel}</h2>
+              <p className="text-sm text-slate-500 mt-1">{searchResults.length} restaurants found</p>
+            </div>
+            <button type="button" onClick={() => setSearchResults(null)} className="text-sm font-medium text-slate-600 hover:text-[#FF6B35]">
+              Clear results
+            </button>
+          </div>
+          {searchResults.length > 0 ? (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
+              {searchResults.map((restaurant) => (
+                <Link key={restaurant.id} to={`/restaurant/${restaurant.id}`}><RestaurantCard restaurant={restaurant} /></Link>
+              ))}
+            </div>
+          ) : (
+            <div className="border border-dashed border-gray-300 py-12 text-center text-slate-500">No restaurants match the selected search criteria.</div>
+          )}
+        </section>
+      )}
 
 
 
