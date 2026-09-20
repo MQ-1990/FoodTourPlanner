@@ -105,16 +105,6 @@ export const Login = () => {
           </div>
 
           {/* Demo Credentials */}
-          <div className="mt-6 pt-6 border-t border-gray-200">
-            <p className="text-xs text-gray-500 text-center mb-3">Demo Credentials:</p>
-            <div className="space-y-2 text-xs text-gray-600">
-              <div className="bg-gray-50 rounded p-2">
-                <div className="font-medium text-gray-700 mb-1">Admin Account:</div>
-                <div>Email: <code className="bg-gray-200 px-1 rounded">admin</code></div>
-                <div>Password: <code className="bg-gray-200 px-1 rounded">admin</code></div>
-              </div>
-            </div>
-          </div>
         </div>
       </div>
     </div>
