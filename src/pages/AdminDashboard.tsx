@@ -1,10 +1,11 @@
 import { useState, useRef, useEffect, ChangeEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Users, Store, Star, TrendingUp, Search, Edit, Trash2, Check, X, Plus, BarChart3, LogOut, ChevronDown, User } from 'lucide-react';
+import { Users, Store, Star, TrendingUp, Search, Edit, Trash2, Check, X, Plus, BarChart3, LogOut, ChevronDown, User, ClipboardCheck } from 'lucide-react';
 import { MOCK_TOURS } from '../lib/data';
 import { useRestaurants } from '../context/RestaurantContext';
 import { useAuth } from '../context/AuthContext';
 import api from '../lib/api';
+import { AddressFields, addressPartsFromLegacy, createVietnamAddressParts, formatAddress, type AddressParts } from '../components/AddressFields';
 
 type MenuItem = {
   name: string;
@@ -21,18 +22,66 @@ type AdminUser = {
   isLocked?: boolean;
 };
 
+type RestaurantRequest = {
+  _id: string;
+  name: string;
+  address: string;
+  cuisine?: string;
+  openingTime?: string;
+  closingTime?: string;
+  dishes?: MenuItem[];
+  tags?: string[];
+  image?: string | null;
+  description?: string | null;
+  status: 'Pending' | 'Approved' | 'Rejected';
+  createdAt: string;
+  user?: { username?: string; email?: string; phone?: string };
+};
+
+const isPostcodeLike = (value: unknown) => /^\d{4,10}(?:-\d{3,4})?$/.test(String(value || '').trim());
+
+const getRestaurantAreaLabel = (restaurant: any) => {
+  const district = String(restaurant.district || '').trim();
+  if (district && !isPostcodeLike(district)) return district;
+
+  const parts = String(restaurant.address || '').split(',').map((part) => part.trim()).filter(Boolean);
+  const namedDistrict = parts.find((part) => /\b(district|quan|quận|ward|phuong|phường|thu duc)\b/i.test(part));
+  if (namedDistrict) return namedDistrict;
+  return parts.find((part) => /ho chi minh|hanoi|ha noi|da nang/i.test(part) && !isPostcodeLike(part)) || 'Area unavailable';
+};
+
+const getRestaurantCityLabel = (restaurant: any) => {
+  if (restaurant.city) return restaurant.city;
+  const code = String(restaurant.cityCode || '').toLowerCase();
+  if (code === 'ho-chi-minh') return 'Ho Chi Minh City';
+  if (code === 'ha-noi') return 'Hanoi';
+  if (code === 'da-nang') return 'Da Nang';
+  return code ? code.replace(/-/g, ' ') : 'Ho Chi Minh City';
+};
+
 export default function AdminDashboard() {
   const navigate = useNavigate();
   const { logout, user } = useAuth();
   const { restaurants: allRestaurants, refetch } = useRestaurants();
+  const availableRestaurantTags = (() => {
+    const tags = new Map<string, string>();
+    allRestaurants.flatMap((restaurant) => restaurant.tags ?? []).forEach((tag) => {
+      const trimmed = tag?.trim();
+      if (trimmed && !tags.has(trimmed.toLocaleLowerCase())) tags.set(trimmed.toLocaleLowerCase(), trimmed);
+    });
+    return [...tags.values()].sort((a, b) => a.localeCompare(b));
+  })();
   const [isSaving, setIsSaving] = useState(false);
-  const [activeTab, setActiveTab] = useState<'overview' | 'restaurants' | 'users'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'restaurants' | 'users' | 'requests'>('overview');
   const [searchQuery, setSearchQuery] = useState('');
   const [showAddDialog, setShowAddDialog] = useState(false);
   const [showProfileMenu, setShowProfileMenu] = useState(false);
   const [adminUsers, setAdminUsers] = useState<AdminUser[]>([]);
   const [isLoadingUsers, setIsLoadingUsers] = useState(false);
   const [userActionId, setUserActionId] = useState<string | null>(null);
+  const [restaurantRequests, setRestaurantRequests] = useState<RestaurantRequest[]>([]);
+  const [isLoadingRequests, setIsLoadingRequests] = useState(false);
+  const [requestActionId, setRequestActionId] = useState<string | null>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
   // Close dropdown when clicking outside
@@ -46,6 +95,45 @@ export default function AdminDashboard() {
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
+
+  const fetchRestaurantRequests = async () => {
+    setIsLoadingRequests(true);
+    try {
+      const response = await api.get('/restaurant-requests');
+      setRestaurantRequests(response.data || []);
+    } catch (error: any) {
+      console.error('Failed to load restaurant requests:', error);
+      alert(error?.response?.data?.message || 'Failed to load restaurant submissions');
+    } finally {
+      setIsLoadingRequests(false);
+    }
+  };
+
+  useEffect(() => {
+    if (activeTab === 'requests') fetchRestaurantRequests();
+  }, [activeTab]);
+
+  const handleRestaurantRequest = async (request: RestaurantRequest, action: 'approve' | 'reject') => {
+    let adminNote: string | undefined;
+    if (action === 'reject') {
+      const note = window.prompt('Optional rejection note:');
+      if (note === null) return;
+      adminNote = note.trim() || undefined;
+    } else if (!window.confirm(`Approve and add “${request.name}” to the restaurant list?`)) {
+      return;
+    }
+
+    setRequestActionId(request._id);
+    try {
+      await api.patch(`/restaurant-requests/${request._id}/${action}`, action === 'reject' ? { adminNote } : {});
+      await fetchRestaurantRequests();
+      if (action === 'approve') await refetch();
+    } catch (error: any) {
+      alert(error?.response?.data?.message || 'Unable to update this restaurant suggestion.');
+    } finally {
+      setRequestActionId(null);
+    }
+  };
 
   useEffect(() => {
     if (showAddDialog) {
@@ -101,7 +189,9 @@ export default function AdminDashboard() {
   const restaurantList = allRestaurants.map(r => ({
     ...r,
     cuisine: r.tags,
-    district: r.district || r.address.split(',').pop()?.trim() || 'N/A',
+    storedDistrict: r.district,
+    storedDistrictCode: r.districtCode,
+    district: getRestaurantAreaLabel(r),
     reviews: r.reviewCount,
     isOpen: r.openNow,
     openingTime: r.openingTime || '',
@@ -112,13 +202,15 @@ export default function AdminDashboard() {
 
   // Form state for Add Restaurant
   const [newName, setNewName] = useState('');
-  const [newAddress, setNewAddress] = useState('');
+  const [addressParts, setAddressParts] = useState<AddressParts>(createVietnamAddressParts);
   const [newOpeningTime, setNewOpeningTime] = useState('');
   const [newClosingTime, setNewClosingTime] = useState('');
   const [newDescription, setNewDescription] = useState('');
   const [newImageUrl, setNewImageUrl] = useState('');
-  const [newDistrict, setNewDistrict] = useState('');
+  const newAddress = formatAddress(addressParts);
   const [newAmenities, setNewAmenities] = useState(''); // comma-separated
+  const [newTags, setNewTags] = useState<string[]>([]);
+  const [tagDraft, setTagDraft] = useState('');
   const [editingRestaurant, setEditingRestaurant] = useState<any | null>(null);
   const [showRestaurantImageOptions, setShowRestaurantImageOptions] = useState(false);
   const [activeDishImageOptions, setActiveDishImageOptions] = useState<number | null>(null);
@@ -132,13 +224,14 @@ export default function AdminDashboard() {
     setEditingRestaurant(null);
 
     setNewName('');
-    setNewAddress('');
+    setAddressParts(createVietnamAddressParts());
     setNewOpeningTime('');
     setNewClosingTime('');
     setNewDescription('');
     setNewImageUrl('');
-    setNewDistrict('');
     setNewAmenities('');
+    setNewTags([]);
+    setTagDraft('');
     setMenuItems([{ name: '', price: '', image: '' }]);
     setShowRestaurantImageOptions(false);
     setActiveDishImageOptions(null);
@@ -151,13 +244,23 @@ export default function AdminDashboard() {
     setEditingRestaurant(restaurant);
 
     setNewName(restaurant.name || '');
-    setNewAddress(restaurant.address || '');
+    const storedDistrict = restaurant.storedDistrict ?? restaurant.district;
+    const legacyParts = addressPartsFromLegacy(restaurant.address || '', isPostcodeLike(storedDistrict) ? '' : (storedDistrict || ''), getRestaurantCityLabel(restaurant));
+    setAddressParts({
+      streetAddress: restaurant.streetAddress || legacyParts.streetAddress,
+      ward: restaurant.ward || legacyParts.ward,
+      district: !isPostcodeLike(storedDistrict) && storedDistrict ? storedDistrict : legacyParts.district,
+      city: restaurant.city || legacyParts.city,
+      country: restaurant.country || legacyParts.country,
+    });
     setNewOpeningTime(restaurant.openingTime || '');
     setNewClosingTime(restaurant.closingTime || '');
     setNewDescription(restaurant.description || '');
     setNewImageUrl(restaurant.image || '');
-    setNewDistrict(restaurant.district || '');
     setNewAmenities(Array.isArray(restaurant.amenities) ? restaurant.amenities.join(', ') : '');
+    const existingTags = Array.isArray(restaurant.tags) ? restaurant.tags : Array.isArray(restaurant.cuisine) ? restaurant.cuisine : [];
+    setNewTags(existingTags);
+    setTagDraft('');
 
     setMenuItems(
       restaurant.menu && restaurant.menu.length
@@ -172,6 +275,29 @@ export default function AdminDashboard() {
     setShowAddDialog(true);
     setShowRestaurantImageOptions(false);
     setActiveDishImageOptions(null);
+  };
+
+  const addRestaurantTags = (rawTags: string) => {
+    const additions = rawTags.split(',').map((tag) => tag.trim()).filter(Boolean).map((tag) =>
+      availableRestaurantTags.find((existingTag) => existingTag.toLocaleLowerCase() === tag.toLocaleLowerCase()) || tag
+    );
+    if (!additions.length) return;
+    setNewTags((current) => {
+      const seen = new Set(current.map((tag) => tag.toLocaleLowerCase()));
+      return [...current, ...additions.filter((tag) => {
+        const normalized = tag.toLocaleLowerCase();
+        if (seen.has(normalized)) return false;
+        seen.add(normalized);
+        return true;
+      })].slice(0, 12);
+    });
+    setTagDraft('');
+  };
+
+  const toggleRestaurantTag = (tag: string) => {
+    setNewTags((current) => current.includes(tag)
+      ? current.filter((item) => item !== tag)
+      : current.length < 12 ? [...current, tag] : current);
   };
 
 
@@ -247,13 +373,14 @@ export default function AdminDashboard() {
     setShowAddDialog(false);
     setEditingRestaurant(null);
     setNewName('');
-    setNewAddress('');
+    setAddressParts(createVietnamAddressParts());
     setNewOpeningTime('');
     setNewClosingTime('');
     setNewDescription('');
     setNewImageUrl('');
-    setNewDistrict('');
     setNewAmenities('');
+    setNewTags([]);
+    setTagDraft('');
     setMenuItems([{ name: '', price: '' }]);
     setShowRestaurantImageOptions(false);
     setActiveDishImageOptions(null);
@@ -262,6 +389,14 @@ export default function AdminDashboard() {
   const handleSaveRestaurant = async () => {
     if (!newName.trim()) {
       alert('Please enter restaurant name');
+      return;
+    }
+    if (!newTags.length) {
+      alert('Please select or add at least one cuisine tag.');
+      return;
+    }
+    if (!addressParts.streetAddress.trim() || !addressParts.district.trim() || !addressParts.city.trim() || !addressParts.country.trim()) {
+      alert('Please complete the street address, district/area, city, and country.');
       return;
     }
 
@@ -279,7 +414,11 @@ export default function AdminDashboard() {
         const editPayload = {
           name: newName,
           address: newAddress,
-          district: newDistrict || editingRestaurant.district || 'Quận 1',
+          streetAddress: addressParts.streetAddress,
+          ward: addressParts.ward,
+          district: addressParts.district,
+          city: addressParts.city,
+          country: addressParts.country,
           image: newImageUrl || editingRestaurant.image || '',
           openingTime: newOpeningTime,
           closingTime: newClosingTime,
@@ -287,11 +426,9 @@ export default function AdminDashboard() {
           amenities: amenitiesParsed.length > 0 ? amenitiesParsed : (editingRestaurant.amenities || []),
           dishes: cleanedMenu.length > 0 ? cleanedMenu : (editingRestaurant.dishes || []),
           // Preserve fields not in the form
-          tags: editingRestaurant.tags || editingRestaurant.cuisine || [],
+          tags: newTags,
           priceRange: editingRestaurant.priceRange || '$$',
           phone: editingRestaurant.phone || '',
-          lat: editingRestaurant.lat || null,
-          lng: editingRestaurant.lng || null,
           reviews: editingRestaurant.reviews || [],
         };
         await api.put(`/restaurants/${editingRestaurant.id}`, editPayload);
@@ -300,12 +437,17 @@ export default function AdminDashboard() {
         const addPayload = {
           name: newName,
           address: newAddress,
-          district: newDistrict || 'Quận 1',
+          streetAddress: addressParts.streetAddress,
+          ward: addressParts.ward,
+          district: addressParts.district,
+          city: addressParts.city,
+          country: addressParts.country,
           image: newImageUrl || '',
           openingTime: newOpeningTime,
           closingTime: newClosingTime,
           description: newDescription,
           amenities: amenitiesParsed,
+          tags: newTags,
           dishes: cleanedMenu,
         };
         await api.post('/restaurants', addPayload);
@@ -497,6 +639,19 @@ export default function AdminDashboard() {
                 <Users className="w-5 h-5 inline mr-2" />
                 Users
               </button>
+              <button
+                onClick={() => setActiveTab('requests')}
+                className={`px-6 py-4 whitespace-nowrap transition-colors ${activeTab === 'requests'
+                  ? 'border-b-2 border-[#FF6B35] text-[#FF6B35]'
+                  : 'text-gray-600 hover:text-gray-900'
+                  }`}
+              >
+                <ClipboardCheck className="w-5 h-5 inline mr-2" />
+                Restaurant Suggestions
+                {restaurantRequests.filter((request) => request.status === 'Pending').length > 0 && (
+                  <span className="ml-2 rounded-full bg-orange-100 px-2 py-0.5 text-xs text-orange-700">{restaurantRequests.filter((request) => request.status === 'Pending').length}</span>
+                )}
+              </button>
 
             </div>
           </div>
@@ -657,6 +812,60 @@ export default function AdminDashboard() {
             )}
 
             {/* Users Tab */}
+            {activeTab === 'requests' && (
+              <section>
+                <div className="mb-6 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                  <div>
+                    <h2 className="text-lg font-semibold text-gray-900">Restaurant Suggestions</h2>
+                    <p className="text-sm text-gray-500">Review suggestions before adding restaurants to the public directory.</p>
+                  </div>
+                  <button onClick={fetchRestaurantRequests} disabled={isLoadingRequests} className="rounded-lg border border-gray-300 px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 disabled:opacity-60">
+                    {isLoadingRequests ? 'Loading...' : 'Refresh'}
+                  </button>
+                </div>
+                {isLoadingRequests ? (
+                  <div className="py-12 text-center text-gray-500">Loading suggestions...</div>
+                ) : restaurantRequests.length === 0 ? (
+                  <div className="rounded-xl bg-gray-50 p-8 text-center text-gray-500">There are no restaurant suggestions yet.</div>
+                ) : (
+                  <div className="space-y-4">
+                    {restaurantRequests.map((request) => (
+                      <article key={request._id} className="restaurant-suggestion-card rounded-xl border border-gray-200 p-4">
+                        <div className="restaurant-suggestion-card__image overflow-hidden rounded-lg bg-orange-50 text-[#FF6B35]">
+                          {request.image ? <img src={request.image} alt={request.name} className="h-full w-full object-cover" /> : <div className="flex h-full w-full items-center justify-center"><Store className="h-8 w-8" /></div>}
+                        </div>
+                        <div className="restaurant-suggestion-card__content">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <h3 className="font-semibold text-gray-900">{request.name}</h3>
+                            <span className={`rounded-full px-2.5 py-1 text-xs font-medium ${request.status === 'Pending' ? 'bg-amber-100 text-amber-700' : request.status === 'Approved' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
+                              {request.status === 'Pending' ? 'Pending' : request.status === 'Approved' ? 'Approved' : 'Rejected'}
+                            </span>
+                          </div>
+                          <p className="mt-1 text-sm text-gray-600">{request.tags?.join(', ') || request.cuisine || 'No tags'} · {request.address}</p>
+                          {(request.openingTime || request.closingTime) && <p className="mt-1 text-xs text-gray-500">Hours: {request.openingTime || '—'}–{request.closingTime || '—'}</p>}
+                          {!!request.dishes?.length && <p className="mt-1 text-xs text-gray-500">Menu: {request.dishes.map((dish) => dish.price ? `${dish.name} (${dish.price})` : dish.name).join(' · ')}</p>}
+                          {!!request.tags?.length && <div className="mt-2 flex flex-wrap gap-1.5">{request.tags.map((tag) => <span key={tag} className="rounded-full bg-orange-50 px-2.5 py-1 text-xs font-medium text-[#D94E1F]">{tag}</span>)}</div>}
+                          {request.description && <p className="mt-2 text-sm text-gray-700">{request.description}</p>}
+                          <p className="mt-2 text-xs text-gray-500">Submitted by: {request.user?.username || request.user?.email || 'Unknown'}{request.user?.email && request.user.username ? ` (${request.user.email})` : ''} · {new Date(request.createdAt).toLocaleDateString('en-US')}</p>
+                        </div>
+                        {request.status === 'Pending' && (
+                          <div className="restaurant-suggestion-card__actions">
+                            <button disabled={requestActionId === request._id} onClick={() => handleRestaurantRequest(request, 'approve')} className="restaurant-suggestion-card__approve">
+                              <Check className="h-4 w-4" /> Approve
+                            </button>
+                            <button disabled={requestActionId === request._id} onClick={() => handleRestaurantRequest(request, 'reject')} className="restaurant-suggestion-card__reject">
+                              <X className="h-4 w-4" /> Reject
+                            </button>
+                          </div>
+                        )}
+                      </article>
+                    ))}
+                  </div>
+                )}
+              </section>
+            )}
+
+            {/* Users Tab */}
             {activeTab === 'users' && (
               <div>
                 <div className="flex items-center justify-between mb-6">
@@ -743,9 +952,9 @@ export default function AdminDashboard() {
 
       {/* Add Restaurant Dialog */}
       {showAddDialog && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
-            <div className="p-6">
+        <div className="restaurant-modal-overlay">
+          <div className="restaurant-modal restaurant-modal--admin">
+            <div className="restaurant-modal__body">
               <div className="flex items-center justify-between mb-4">
                 <h2 className="text-gray-900 text-lg font-semibold">
                   {editingRestaurant ? 'Edit Restaurant' : 'Add New Restaurant'}
@@ -770,16 +979,9 @@ export default function AdminDashboard() {
                 />
               </div>
 
-              {/* Address */}
-              <div className="mb-3">
-                <label className="block text-gray-700 mb-1 text-sm">Address</label>
-                <input
-                  type="text"
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg outline-none focus:ring-2 focus:ring-[#FF6B35] text-sm"
-                  placeholder="Enter full address"
-                  value={newAddress}
-                  onChange={(e) => setNewAddress(e.target.value)}
-                />
+              <div className="mb-4">
+                <AddressFields value={addressParts} onChange={setAddressParts} requiredDistrict />
+                <p className="mt-2 text-xs text-gray-500">Display address: {newAddress || 'Complete the address fields above'}</p>
               </div>
 
               {/* Image + District */}
@@ -831,16 +1033,6 @@ export default function AdminDashboard() {
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-3">
                   <div>
-                    <label className="block text-gray-700 mb-1 text-sm">District</label>
-                    <input
-                      type="text"
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg outline-none focus:ring-2 focus:ring-[#FF6B35] text-sm"
-                      placeholder="Quận 1"
-                      value={newDistrict}
-                      onChange={(e) => setNewDistrict(e.target.value)}
-                    />
-                  </div>
-                  <div>
                     <label className="block text-gray-700 mb-1 text-sm">Amenities (comma separated)</label>
                     <input
                       type="text"
@@ -849,6 +1041,42 @@ export default function AdminDashboard() {
                       value={newAmenities}
                       onChange={(e) => setNewAmenities(e.target.value)}
                     />
+                  </div>
+                  <div className="md:col-span-2">
+                    <label className="block text-gray-700 mb-1 text-sm">Cuisine & Restaurant Tags <span className="text-red-500">*</span></label>
+                    {availableRestaurantTags.length > 0 ? (
+                      <div className="mb-2 flex flex-wrap gap-2">
+                        {availableRestaurantTags.map((tag) => {
+                          const selected = newTags.includes(tag);
+                          return <button key={tag} type="button" aria-pressed={selected} onClick={() => toggleRestaurantTag(tag)} className={`rounded-full border px-3 py-1 text-xs transition-colors ${selected ? 'border-[#FF6B35] bg-orange-50 text-[#D94E1F]' : 'border-gray-200 text-gray-600 hover:border-[#FF6B35]'}`}>{tag}</button>;
+                        })}
+                      </div>
+                    ) : <p className="mb-2 text-xs text-gray-500">No existing restaurant tags yet. Add a new one below.</p>}
+                    <div className="flex gap-2">
+                      <input
+                        type="text"
+                        className="min-w-0 flex-1 px-3 py-2 border border-gray-300 rounded-lg outline-none focus:ring-2 focus:ring-[#FF6B35] text-sm"
+                        placeholder="Add a new tag — press Enter or comma"
+                        value={tagDraft}
+                        onChange={(event) => setTagDraft(event.target.value)}
+                        onKeyDown={(event) => {
+                          if (event.key === 'Enter' || event.key === ',') {
+                            event.preventDefault();
+                            addRestaurantTags(tagDraft);
+                          }
+                        }}
+                        onBlur={() => addRestaurantTags(tagDraft)}
+                      />
+                      <button type="button" onClick={() => addRestaurantTags(tagDraft)} className="rounded-lg border border-gray-300 px-3 text-sm text-gray-700 hover:bg-gray-50">Add</button>
+                    </div>
+                    <div className="mt-2 flex flex-wrap gap-2">
+                      {newTags.filter((tag) => !availableRestaurantTags.includes(tag)).map((tag) => (
+                        <span key={tag} className="inline-flex items-center gap-1 rounded-full bg-orange-50 px-3 py-1 text-xs font-medium text-[#D94E1F]">
+                          {tag}
+                          <button type="button" aria-label={`Remove ${tag} tag`} onClick={() => setNewTags((current) => current.filter((item) => item !== tag))} className="rounded-full hover:bg-orange-100">×</button>
+                        </span>
+                      ))}
+                    </div>
                   </div>
                 </div>
               </div>
@@ -994,7 +1222,7 @@ export default function AdminDashboard() {
               </div>
             </div>
 
-            <div className="border-t px-6 py-4 flex gap-3">
+            <div className="restaurant-modal__footer">
               <button
                 onClick={handleSaveRestaurant}
                 disabled={isSaving}

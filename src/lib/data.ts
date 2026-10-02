@@ -24,7 +24,13 @@ export interface Restaurant {
   priceRange: string;
   budget?: number;
   address: string;
+  streetAddress?: string;
+  ward?: string;
   district?: string;
+  districtCode?: string;
+  city?: string;
+  cityCode?: string;
+  country?: string;
   tags: string[];
   image: string;
   lat: number;

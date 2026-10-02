@@ -1,6 +1,7 @@
 import { ChevronLeft, Clock, Map, Search, Sparkles, Save, Edit2 } from 'lucide-react';
 import { Restaurant } from '../../lib/data';
 import { DraggableStop } from './DraggableStop';
+import { AddressFields, formatAddress, type AddressParts } from '../AddressFields';
 
 interface OptimizationSummary {
   algorithm?: string;
@@ -41,8 +42,8 @@ interface ItineraryPanelProps {
   onRouteObjectiveChange: (objective: "driving-distance" | "driving-time") => void;
   startMode: "first-stop" | "current-location" | "address" | "map";
   onStartModeChange: (mode: "first-stop" | "current-location" | "address" | "map") => void;
-  customStartAddress: string;
-  onCustomStartAddressChange: (address: string) => void;
+  customStartAddressParts: AddressParts;
+  onCustomStartAddressPartsChange: (parts: AddressParts) => void;
   isResolvingStartLocation: boolean;
   handleSaveTour: () => void;
   editingTourId: string | null;
@@ -63,7 +64,7 @@ export const ItineraryPanel = ({
   handleNameSave, handleNameCancel,
   moveStop, syncStopOrder, removeStop, handleRestaurantClick,
   optimizeRoute, optimizationSummary, routeObjective, onRouteObjectiveChange,
-  startMode, onStartModeChange, customStartAddress, onCustomStartAddressChange, isResolvingStartLocation,
+  startMode, onStartModeChange, customStartAddressParts, onCustomStartAddressPartsChange, isResolvingStartLocation,
   handleSaveTour, editingTourId,
   setShowItinerary, setShowTourMenu, setShowSaved,
   setShowMyTours, setSelectedTour, setSelectedRestaurant,
@@ -220,15 +221,11 @@ export const ItineraryPanel = ({
           <p className="mt-2 text-xs text-purple-700">Click a location on the map to set the starting point.</p>
         )}
         {startMode === "address" && (
-          <label className="mt-2 block text-xs text-gray-600">
-            Starting address
-            <input
-              value={customStartAddress}
-              onChange={(event) => onCustomStartAddressChange(event.target.value)}
-              placeholder="e.g. Ben Thanh Market, Ho Chi Minh City"
-              className="mt-1 w-full rounded-md border border-gray-200 bg-white px-2 py-2 text-sm text-gray-800 outline-none focus:border-purple-400"
-            />
-          </label>
+          <div className="mt-3">
+            <span className="mb-2 block text-xs text-gray-600">Starting address</span>
+            <AddressFields value={customStartAddressParts} onChange={onCustomStartAddressPartsChange} />
+            <p className="mt-2 text-xs text-gray-500">{formatAddress(customStartAddressParts) || 'Enter a street address and city to geocode the starting point.'}</p>
+          </div>
         )}
         <div className="flex gap-4 text-sm text-gray-500 mt-3 pb-3 border-b border-gray-200">
           <span className="flex items-center gap-1"><Clock className="w-4 h-4" /> {optimizationSummary?.routeTimeMinutes !== undefined ? formatMinutes(optimizationSummary.routeTimeMinutes) : 'Not optimized'}</span>

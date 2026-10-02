@@ -9,6 +9,7 @@ import { RestaurantCard } from '../components/RestaurantCard';
 import { TourCard } from '../components/TourCard';
 import { MOCK_TOURS } from '../lib/data';
 import { useRestaurants } from '../context/RestaurantContext';
+import { AddressAutocomplete } from '../components/AddressAutocomplete';
 
 const SlickStyles = () => (
   <style>{`
@@ -128,10 +129,13 @@ useEffect(() => {
 
   if (allRestaurants.length === 0) return;
   let isCurrent = true;
-  const fetchRecommendations = async () => {
+  const fetchRecommendations = async (location?: { lat: number; lng: number }) => {
       try {
+          const params = location
+            ? `?lat=${encodeURIComponent(location.lat)}&lng=${encodeURIComponent(location.lng)}`
+            : '';
           const response = await api.get(
-              "/recommendations/restaurants"
+              `/recommendations/restaurants${params}`
           );
 
 
@@ -163,7 +167,30 @@ useEffect(() => {
   };
 
 
- fetchRecommendations();
+  let savedLocation: { lat: number; lng: number } | null = null;
+  try {
+    const stored = JSON.parse(sessionStorage.getItem('currentUserLocation') || 'null');
+    if (Number.isFinite(stored?.lat) && Number.isFinite(stored?.lng)) {
+      savedLocation = { lat: stored.lat, lng: stored.lng };
+    }
+  } catch {
+    // Fall through to the browser location request.
+  }
+
+  if (savedLocation) {
+    fetchRecommendations(savedLocation);
+  } else if (navigator.geolocation) {
+    navigator.geolocation.getCurrentPosition(
+      (location) => fetchRecommendations({
+        lat: location.coords.latitude,
+        lng: location.coords.longitude,
+      }),
+      () => fetchRecommendations(),
+      { enableHighAccuracy: false, timeout: 5000, maximumAge: 300000 },
+    );
+  } else {
+    fetchRecommendations();
+  }
 
 
   return () => { isCurrent = false; };
@@ -182,11 +209,23 @@ useEffect(() => {
     return closing >= opening ? target >= opening && target <= closing : target >= opening || target <= closing;
   };
 
+  const normalizeLocation = (value: string) => value
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[đĐ]/g, 'd')
+    .toLowerCase()
+    .replace(/\b(quan|q)\s*(\d+)\b/g, 'district-$2')
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/(^-|-$)/g, '');
+
   const getSearchResults = (nextCuisine = cuisine) => allRestaurants.filter((restaurant: any) => {
-    const searchableText = [restaurant.name, restaurant.address, restaurant.district, restaurant.cuisine, ...(restaurant.tags || []), ...(restaurant.dishes || []).map((dish: any) => dish.name)].join(' ').toLowerCase();
+    const searchableText = [restaurant.name, restaurant.address, restaurant.district, ...(restaurant.tags || []), ...(restaurant.dishes || []).map((dish: any) => dish.name)].join(' ').toLowerCase();
     const matchesKeyword = !keyword.trim() || searchableText.includes(keyword.trim().toLowerCase());
-    const matchesCuisine = !nextCuisine || [restaurant.cuisine, ...(restaurant.tags || [])].filter(Boolean).some((value: string) => value.toLowerCase() === nextCuisine.toLowerCase());
-    const matchesLocation = !locationFilter || [restaurant.district, restaurant.address].filter(Boolean).some((value: string) => value.toLowerCase().includes(locationFilter.toLowerCase()));
+    const matchesCuisine = !nextCuisine || (restaurant.tags || []).some((value: string) => value.toLowerCase() === nextCuisine.toLowerCase());
+    const normalizedQuery = normalizeLocation(locationFilter);
+    const matchesLocation = !locationFilter || [restaurant.district, restaurant.districtCode, restaurant.cityCode, restaurant.address]
+      .filter(Boolean)
+      .some((value: string) => normalizeLocation(value).includes(normalizedQuery));
     const matchesRating = !rating || Number(restaurant.rating || 0) >= Number(rating);
     const matchesBudget = !budget || (() => {
       const value = Number(restaurant.budget || 0);
@@ -207,6 +246,10 @@ useEffect(() => {
     e.preventDefault();
 
     showSearchResults();
+    if (keyword.trim()) {
+      api.post('/users/me/search-history', { keyword: keyword.trim() })
+        .catch((error) => console.warn('Could not save search history:', error));
+    }
   };
 
   return (
@@ -271,24 +314,14 @@ useEffect(() => {
                 <span className="text-white/90 text-[11px] uppercase tracking-wide drop-shadow flex items-center gap-1">
                   <MapPin className="w-3 h-3" /> Location
                 </span>
-                <select
+                <AddressAutocomplete
                   value={locationFilter}
-                  onChange={(e) => setLocationFilter(e.target.value)}
+                  onChange={setLocationFilter}
+                  onSelect={(suggestion) => setLocationFilter(suggestion.district || suggestion.city || suggestion.formatted)}
+                  placeholder="Type an area"
                   className="w-[140px] border border-white/60 rounded-lg px-2 py-1.5 text-xs bg-white/90 text-slate-800 
         focus:outline-none focus:ring-1 focus:ring-[#FF6B35]"
-                >
-                  <option value="">Anywhere</option>
-                  <option value="District 1">District 1</option>
-                  <option value="District 2">District 2</option>
-                  <option value="District 3">District 3</option>
-                  <option value="District 4">District 4</option>
-                  <option value="District 5">District 5</option>
-                  <option value="District 6">District 6</option>
-                  <option value="District 7">District 7</option>
-                  <option value="District 8">District 8</option>
-                  <option value="District 9">District 9</option>
-                  <option value="District 10">District 10</option>
-                </select>
+                />
               </div>
 
               {/* Opening at */}
@@ -607,6 +640,11 @@ useEffect(() => {
                         />
 
                     </Link>
+                    {restaurant.recommendationReason?.length > 0 && (
+                      <p className="px-1 pt-2 text-xs text-slate-500 line-clamp-2">
+                        {restaurant.recommendationReason.slice(0, 2).join(' • ')}
+                      </p>
+                    )}
 
                 </div>
 

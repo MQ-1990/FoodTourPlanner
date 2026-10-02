@@ -19,6 +19,7 @@ import { useRestaurants } from "../context/RestaurantContext";
 import { useAuth } from "../context/AuthContext";
 import { toast } from "sonner";
 import api from "../lib/api";
+import { createEmptyAddressParts, formatAddress, type AddressParts } from "../components/AddressFields";
 import {
   DraggableStop,
   SearchMenu,
@@ -58,7 +59,8 @@ export const Planner = () => {
   const [optimizationSummary, setOptimizationSummary] = useState<any | null>(null);
   const [routeObjective, setRouteObjective] = useState<RouteObjective>("driving-distance");
   const [startMode, setStartMode] = useState<StartMode>("first-stop");
-  const [customStartAddress, setCustomStartAddress] = useState("");
+  const [customStartAddressParts, setCustomStartAddressParts] = useState<AddressParts>(createEmptyAddressParts);
+  const customStartAddress = formatAddress(customStartAddressParts);
   const [activeStartLocation, setActiveStartLocation] = useState<StartLocation | null>(null);
   const [isResolvingStartLocation, setIsResolvingStartLocation] = useState(false);
   const [tourName, setTourName] = useState("My Food Tour");
@@ -103,6 +105,16 @@ export const Planner = () => {
     useState<string>("");
   const [minRating, setMinRating] = useState<number>(0);
   const [onlyOpen, setOnlyOpen] = useState(false);
+
+  useEffect(() => {
+    const keyword = searchQuery.trim();
+    if (keyword.length < 2) return;
+    const timer = window.setTimeout(() => {
+      api.post("/users/me/search-history", { keyword })
+        .catch((err) => console.warn("Could not save search history:", err));
+    }, 800);
+    return () => window.clearTimeout(timer);
+  }, [searchQuery]);
 
   // Navigation Panel States
   const [showSearchMenu, setShowSearchMenu] = useState(true); // Default to search menu on load
@@ -439,7 +451,7 @@ export const Planner = () => {
     setOptimizationSummary(tour.optimizationSummary || null);
     setActiveStartLocation(tour.routeStartLocation || null);
     setStartMode(tour.routeStartLocation ? "map" : "first-stop");
-    setCustomStartAddress("");
+    setCustomStartAddressParts(createEmptyAddressParts());
     setTourName(tour.title || tour.name || "Untitled Tour");
     setTourDescription(tour.description || "");
     setTourTags(tour.tags || []);
@@ -516,13 +528,27 @@ export const Planner = () => {
     return { min: 0, max: Infinity };
   };
 
+  const normalizePlannerLocation = (value: string) => value
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[đĐ]/g, 'd')
+    .toLowerCase()
+    .replace(/\b(quan|q)\s*(\d+)\b/g, 'district-$2')
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/(^-|-$)/g, '');
+
+  const matchesRestaurantLocation = (restaurant: any, query: string) => {
+    if (!query) return true;
+    const normalizedQuery = normalizePlannerLocation(query);
+    return [restaurant.district, restaurant.districtCode, restaurant.cityCode, restaurant.address]
+      .filter(Boolean)
+      .some((value: string) => normalizePlannerLocation(value).includes(normalizedQuery));
+  };
+
   // --- 1. FILTER RESTAURANTS LOGIC ---
   const filteredRestaurants = allRestaurants.filter((r) => {
     // District
-    if (
-      selectedDistrict &&
-      !r.address.includes(selectedDistrict)
-    )
+    if (!matchesRestaurantLocation(r, selectedDistrict))
       return false;
     // Price ($ signs)
     if (selectedPrice && r.priceRange !== selectedPrice)
@@ -644,7 +670,7 @@ export const Planner = () => {
     allRestaurants.forEach((repo) => {
       // -- Filter Parent Restaurant First --
       // (Keeps checking Restaurant tags for the "Available at" search logic)
-      if (dishLocation && !repo.address.includes(dishLocation))
+      if (!matchesRestaurantLocation(repo, dishLocation))
         return;
       if (dishCuisine && !repo.tags.includes(dishCuisine))
         return;
@@ -828,8 +854,8 @@ export const Planner = () => {
     clearOptimizedRoute();
   };
 
-  const handleCustomStartAddressChange = (address: string) => {
-    setCustomStartAddress(address);
+  const handleCustomStartAddressPartsChange = (parts: AddressParts) => {
+    setCustomStartAddressParts(parts);
     setActiveStartLocation(null);
     clearOptimizedRoute();
   };
@@ -838,6 +864,46 @@ export const Planner = () => {
     setActiveStartLocation(startLocation);
     clearOptimizedRoute();
     toast.success("Starting point selected on the map");
+  };
+
+  const handleUseCurrentLocation = async () => {
+    if (!navigator.geolocation) {
+      toast.error("This browser does not support current location");
+      return;
+    }
+
+    setIsResolvingStartLocation(true);
+    try {
+      const position = await new Promise<GeolocationPosition>((resolve, reject) => {
+        navigator.geolocation.getCurrentPosition(resolve, reject, {
+          enableHighAccuracy: true,
+          timeout: 10000,
+          maximumAge: 60000,
+        });
+      });
+      const startLocation = {
+        lat: position.coords.latitude,
+        lon: position.coords.longitude,
+        label: "Current location",
+      };
+      setStartMode("current-location");
+      setCustomStartAddressParts(createEmptyAddressParts());
+      setActiveStartLocation(startLocation);
+      clearOptimizedRoute();
+      sessionStorage.setItem("currentUserLocation", JSON.stringify({
+        lat: startLocation.lat,
+        lng: startLocation.lon,
+        savedAt: Date.now(),
+      }));
+      toast.success("Current location set as the starting point");
+    } catch (error: any) {
+      const message = error?.code === 1
+        ? "Location permission was denied"
+        : "Could not get your current location";
+      toast.error(message);
+    } finally {
+      setIsResolvingStartLocation(false);
+    }
   };
 
   const resolveStartLocation = async (): Promise<StartLocation | null> => {
@@ -872,7 +938,9 @@ export const Planner = () => {
       }
 
       const address = customStartAddress.trim();
-      if (!address) throw new Error("Enter a starting address first");
+      if (!customStartAddressParts.streetAddress.trim() || !customStartAddressParts.city.trim()) {
+        throw new Error("Enter a street address and city for the starting point");
+      }
       const response = await api.post("/tours/preview/geocode", { address });
       const startLocation = response.data.startLocation as StartLocation;
       setActiveStartLocation(startLocation);
@@ -883,7 +951,7 @@ export const Planner = () => {
   };
   const resetStartSelection = () => {
     setStartMode("first-stop");
-    setCustomStartAddress("");
+    setCustomStartAddressParts(createEmptyAddressParts());
     setActiveStartLocation(null);
   };
 
@@ -1654,8 +1722,8 @@ export const Planner = () => {
                     onRouteObjectiveChange={handleRouteObjectiveChange}
                     startMode={startMode}
                     onStartModeChange={handleStartModeChange}
-                    customStartAddress={customStartAddress}
-                    onCustomStartAddressChange={handleCustomStartAddressChange}
+                    customStartAddressParts={customStartAddressParts}
+                    onCustomStartAddressPartsChange={handleCustomStartAddressPartsChange}
                     isResolvingStartLocation={isResolvingStartLocation}
                     handleSaveTour={handleSaveTour}
                     editingTourId={editingTourId}
@@ -1685,6 +1753,8 @@ export const Planner = () => {
           startLocation={activeStartLocation}
           isPickingStartLocation={startMode === "map"}
           onPickStartLocation={handleMapStartLocation}
+          onUseCurrentLocation={handleUseCurrentLocation}
+          isLocatingCurrentLocation={isResolvingStartLocation}
           selectedRestaurant={selectedRestaurant}
           selectedTour={selectedTour}
           tourName={tourName}
@@ -1696,7 +1766,3 @@ export const Planner = () => {
     </DndProvider>
   );
 };
-
-
-
-

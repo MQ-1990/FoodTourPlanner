@@ -53,6 +53,12 @@ export const RestaurantDetail = () => {
   }, [restaurant?.id]);
 
   useEffect(() => {
+    if (!isAuthenticated || !restaurant?.id) return;
+    api.post('/users/me/viewed', { rid: Number(restaurant.id) })
+      .catch((err) => console.warn('Could not save viewed restaurant:', err));
+  }, [isAuthenticated, restaurant?.id]);
+
+  useEffect(() => {
     const fetchProfileFavorites = async () => {
       if (!isAuthenticated) {
         setFavoriteIds([]);

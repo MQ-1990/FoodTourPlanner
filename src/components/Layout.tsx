@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { MapPin, Search, Menu, User, Heart, Map as MapIcon, LayoutDashboard, LogOut } from 'lucide-react';
+import { MapPin, Search, Menu, User, Heart, Map as MapIcon, LayoutDashboard, LogOut, Store } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { useAuth } from '../context/AuthContext';
 
@@ -87,6 +87,15 @@ export const Header = () => {
                   >
                     <Heart className="w-4 h-4" />
                     <span>Favorites</span>
+                  </Link>
+                  <Link
+                    to="/profile"
+                    state={{ profileTab: 'submissions' }}
+                    onClick={() => setShowProfileMenu(false)}
+                    className="flex items-center gap-3 px-4 py-2.5 text-gray-700 hover:bg-gray-50 transition-colors"
+                  >
+                    <Store className="w-4 h-4" />
+                    <span>Restaurant Suggestions</span>
                   </Link>
                   <div className="border-t border-gray-100 my-1" />
                   <button

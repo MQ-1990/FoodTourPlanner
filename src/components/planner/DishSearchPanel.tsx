@@ -1,5 +1,6 @@
 import { Search, SlidersHorizontal, ChevronLeft, Soup } from 'lucide-react';
-import { DISH_CUISINES, DISH_PREFERENCES, DISH_BUDGETS, DISH_DISTANCES, DISTRICTS } from './types';
+import { DISH_CUISINES, DISH_PREFERENCES, DISH_BUDGETS, DISH_DISTANCES } from './types';
+import { AddressAutocomplete } from '../AddressAutocomplete';
 
 interface DishSearchPanelProps {
   dishSearchQuery: string;
@@ -132,14 +133,13 @@ export const DishSearchPanel = ({
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="block text-sm text-gray-700 mb-2">Location</label>
-                  <select
+                  <AddressAutocomplete
                     value={dishLocation}
-                    onChange={(e) => setDishLocation(e.target.value)}
+                    onChange={setDishLocation}
+                    onSelect={(suggestion) => setDishLocation(suggestion.district || suggestion.city || suggestion.formatted)}
+                    placeholder="Type an area"
                     className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white"
-                  >
-                    <option value="">Any</option>
-                    {DISTRICTS.map((d) => <option key={d} value={d}>{d}</option>)}
-                  </select>
+                  />
                 </div>
                 <div>
                   <label className="block text-sm text-gray-700 mb-2">Distance</label>

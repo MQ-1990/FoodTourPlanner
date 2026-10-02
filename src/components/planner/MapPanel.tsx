@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { MapPin, Navigation } from 'lucide-react';
+import { LocateFixed, MapPin, Navigation } from 'lucide-react';
 import { Restaurant } from '../../lib/data';
 import { MapContainer, TileLayer, Marker, Popup, Polyline, useMap, useMapEvents } from 'react-leaflet';
 import L from 'leaflet';
@@ -12,6 +12,8 @@ interface MapPanelProps {
   startLocation: { lat: number; lon: number; label: string } | null;
   isPickingStartLocation: boolean;
   onPickStartLocation: (location: { lat: number; lon: number; label: string }) => void;
+  onUseCurrentLocation: () => void;
+  isLocatingCurrentLocation: boolean;
   selectedRestaurant: Restaurant | null;
   selectedTour: any | null;
   tourName: string;
@@ -263,6 +265,8 @@ export const MapPanel = ({
   startLocation,
   isPickingStartLocation,
   onPickStartLocation,
+  onUseCurrentLocation,
+  isLocatingCurrentLocation,
   selectedRestaurant,
   selectedTour,
   tourName,
@@ -493,9 +497,20 @@ export const MapPanel = ({
       )}
 
       {/* My Location Button */}
-      <div className="absolute bottom-8 right-8 bg-white p-2 rounded-full shadow-lg cursor-pointer hover:bg-gray-50 z-[400]">
-        <div className="w-4 h-4 bg-blue-500 rounded-full border-2 border-white ring-2 ring-blue-200" />
-      </div>
+      <button
+        type="button"
+        onClick={onUseCurrentLocation}
+        disabled={isLocatingCurrentLocation}
+        title="Use my current location as the route starting point"
+        aria-label="Use my current location"
+        className="absolute bottom-8 right-8 flex h-11 w-11 items-center justify-center rounded-full bg-white shadow-lg transition-colors hover:bg-gray-50 disabled:cursor-wait disabled:opacity-70 z-[400]"
+      >
+        {isLocatingCurrentLocation ? (
+          <div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-500 border-t-transparent" />
+        ) : (
+          <LocateFixed className="h-6 w-6 text-blue-600" strokeWidth={2.5} />
+        )}
+      </button>
     </div>
   );
 };
