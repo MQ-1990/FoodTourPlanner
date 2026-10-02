@@ -2907,6 +2907,23 @@ html {
 .restaurant-modal--suggest { width: min(100%, 70rem); }
 .restaurant-dish-row { display: grid; grid-template-columns: 4rem minmax(12rem, 1fr) 8rem auto; align-items: center; gap: 0.75rem; }
 @media (max-width: 767px) { .restaurant-dish-row { grid-template-columns: 1fr; } }
+.chat-avatar { display: block; flex: 0 0 auto; overflow: hidden; border: 1px solid #f1f5f9; border-radius: 9999px; object-fit: cover; }
+.chat-avatar--list { width: 2.75rem; height: 2.75rem; }
+.chat-avatar--header { width: 2.5rem; height: 2.5rem; }
+.chat-avatar--message { width: 2rem; height: 2rem; }
+.messages-layout { display: grid; grid-template-columns: 21rem minmax(0, 1fr); }
+.chat-sidebar { min-width: 0; border-right: 1px solid #e5e7eb; }
+.chat-sidebar__heading { border-bottom: 1px solid #f1f5f9; padding: 1rem 1.25rem; color: #334155; font-size: 0.875rem; font-weight: 600; }
+.chat-conversation { display: flex; width: calc(100% - 1rem); align-items: center; gap: 0.75rem; margin: 0.25rem 0.5rem; border-radius: 0.75rem; padding: 0.75rem; text-align: left; transition: background-color 150ms ease; }
+.chat-conversation:hover { background: #edf1f5; }
+.chat-conversation--selected { background: #fff0e5; }
+.chat-conversation--selected:hover { background: #ffe8d8; }
+.chat-thread { background: #eef1f5; }
+.chat-composer { display: flex; gap: 0.75rem; border-top: 1px solid #f1f5f9; background: #fff; padding: 1.25rem; }
+.chat-send-button { display: inline-flex; min-width: 7rem; flex: 0 0 auto; align-items: center; justify-content: center; gap: 0.5rem; border-radius: 0.75rem; background: #ff6b35; padding: 0.75rem 1.25rem; color: #fff; font-size: 0.875rem; font-weight: 600; }
+.chat-send-button:hover { background: #e55a2b; }
+.chat-send-button:disabled { cursor: not-allowed; opacity: 0.6; }
+@media (max-width: 767px) { .messages-layout { grid-template-columns: 1fr; } .chat-sidebar { border-right: 0; border-bottom: 1px solid #e5e7eb; } .chat-composer { padding: 1rem; } .chat-send-button { min-width: auto; padding: 0.75rem 1rem; } }
 .restaurant-modal__form { display: flex; min-height: 0; flex: 1; flex-direction: column; }
 .restaurant-modal__body { min-height: 0; flex: 1; overflow-y: auto; padding: 1.25rem 1.5rem; }
 .restaurant-modal__footer { display: flex; flex: none; gap: .75rem; border-top: 1px solid #e5e7eb; background: #fff; padding: 1rem 1.5rem; }

@@ -1,14 +1,16 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { MapPin, Search, Menu, User, Heart, Map as MapIcon, LayoutDashboard, LogOut, Store } from 'lucide-react';
+import { MapPin, Search, Menu, User, Heart, Map as MapIcon, LayoutDashboard, LogOut, Store, MessageCircle } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { useAuth } from '../context/AuthContext';
+import api from '../lib/api';
 
 export const Header = () => {
   const location = useLocation();
   const navigate = useNavigate();
   const { user, logout, isAuthenticated } = useAuth();
   const [showProfileMenu, setShowProfileMenu] = useState(false);
+  const [unreadMessages, setUnreadMessages] = useState(0);
   const menuRef = useRef<HTMLDivElement>(null);
 
   // Close menu when clicking outside
@@ -22,6 +24,24 @@ export const Header = () => {
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
+
+  useEffect(() => {
+    if (!isAuthenticated) {
+      setUnreadMessages(0);
+      return;
+    }
+    const loadUnreadMessages = async () => {
+      try {
+        const response = await api.get('/messages/mine');
+        setUnreadMessages(Number(response.data?.unreadCount || 0));
+      } catch {
+        // Chat may not be deployed/running yet; navigation should still work.
+      }
+    };
+    loadUnreadMessages();
+    const interval = window.setInterval(loadUnreadMessages, 15000);
+    return () => window.clearInterval(interval);
+  }, [isAuthenticated]);
 
   const handleLogout = () => {
     logout();
@@ -56,8 +76,9 @@ export const Header = () => {
                 onClick={() => setShowProfileMenu(!showProfileMenu)}
                 className="flex items-center gap-2 hover:opacity-80 transition-opacity"
               >
-                <div className="w-9 h-9 rounded-full bg-gray-200 overflow-hidden border-2 border-white shadow-sm">
+                <div className="relative w-9 h-9 rounded-full bg-gray-200 overflow-hidden border-2 border-white shadow-sm">
                   <img src="https://i.pravatar.cc/150?u=a042581f4e29026024d" alt="User" className="w-full h-full object-cover" />
+                  {unreadMessages > 0 && <span aria-label={`${unreadMessages} unread messages`} className="absolute -right-1 -top-1 flex h-4 min-w-4 items-center justify-center rounded-full border-2 border-white bg-red-500 px-1 text-[9px] font-bold leading-none text-white">{unreadMessages > 9 ? '9+' : unreadMessages}</span>}
                 </div>
               </button>
 
@@ -87,6 +108,15 @@ export const Header = () => {
                   >
                     <Heart className="w-4 h-4" />
                     <span>Favorites</span>
+                  </Link>
+                  <Link
+                    to="/messages"
+                    onClick={() => setShowProfileMenu(false)}
+                    className="flex items-center gap-3 px-4 py-2.5 text-gray-700 hover:bg-gray-50 transition-colors"
+                  >
+                    <MessageCircle className="w-4 h-4" />
+                    <span className="flex-1">Messages</span>
+                    {unreadMessages > 0 && <span className="rounded-full bg-red-500 px-2 py-0.5 text-[10px] font-bold text-white">{unreadMessages > 99 ? '99+' : unreadMessages}</span>}
                   </Link>
                   <Link
                     to="/profile"

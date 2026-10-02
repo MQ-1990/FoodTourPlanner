@@ -13,6 +13,7 @@ import { Profile } from './pages/Profile';
 import { Login } from './pages/Login';
 import { Signup } from './pages/Signup';
 import AdminDashboard from './pages/AdminDashboard';
+import { Messages } from './pages/Messages';
 
 const AuthLoading = () => (
   <div className="min-h-screen flex items-center justify-center bg-white text-slate-600">
@@ -63,6 +64,14 @@ const AppRoutes = () => {
         element={
           <ProtectedRoute>
             <Layout><Profile /></Layout>
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/messages/:conversationId?"
+        element={
+          <ProtectedRoute>
+            <Layout><Messages /></Layout>
           </ProtectedRoute>
         }
       />

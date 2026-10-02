@@ -43,6 +43,7 @@ export interface Restaurant {
   reviews: Review[];
   amenities: string[];
   phone?: string;
+  owner?: string | { _id: string; username?: string; email?: string } | null;
   _id?: string;
 }
 

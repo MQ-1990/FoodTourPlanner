@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { Star, MapPin, Clock, Phone, Share2, Heart, CheckCircle, Map } from 'lucide-react';
+import { Star, MapPin, Clock, Phone, Share2, Heart, CheckCircle, Map, MessageCircle } from 'lucide-react';
 import { useRestaurants } from '../context/RestaurantContext';
 import { useAuth } from '../context/AuthContext';
 import { MockMap } from '../components/MockMap';
@@ -23,7 +23,7 @@ export const RestaurantDetail = () => {
   const { id } = useParams();
   const navigate = useNavigate();
   const { restaurants } = useRestaurants();
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, user } = useAuth();
   const restaurant = restaurants.find((r) => String(r.id) === id) || restaurants[0];
 
   const [reviews, setReviews] = useState<ApiReview[]>([]);
@@ -136,7 +136,28 @@ export const RestaurantDetail = () => {
     }
   };
 
+  const getOwnerId = () => {
+    if (!restaurant?.owner) return '';
+    return typeof restaurant.owner === 'string' ? restaurant.owner : restaurant.owner._id;
+  };
+
+  const handleMessageOwner = async () => {
+    if (!isAuthenticated) {
+      navigate('/login');
+      return;
+    }
+    if (!restaurant?._id) return;
+    try {
+      const response = await api.post('/messages/conversations', { restaurantId: restaurant._id });
+      navigate(`/messages/${response.data.conversation._id}`);
+    } catch (err: any) {
+      alert(err?.response?.data?.message || 'Unable to start a conversation with this restaurant.');
+    }
+  };
+
   const displayedReviewCount = reviews.length || restaurant.reviewCount || 0;
+  const ownerId = getOwnerId();
+  const canMessageOwner = !!ownerId && ownerId !== user?.id;
 
   return (
     <div className="bg-white min-h-screen pb-20">
@@ -219,6 +240,15 @@ export const RestaurantDetail = () => {
                 >
                   Write Review
                 </button>
+                {canMessageOwner && (
+                  <button
+                    onClick={handleMessageOwner}
+                    className="flex-1 border-2 border-[#2E86AB] text-[#2E86AB] font-bold py-3 px-6 rounded-lg hover:bg-blue-50 transition-colors flex items-center justify-center gap-2"
+                  >
+                    <MessageCircle className="w-5 h-5" />
+                    Message Owner
+                  </button>
+                )}
               </div>
             </div>
 
